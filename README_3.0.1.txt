@@ -1,16 +1,27 @@
-MOVIEVAULT 3.0 — HOME EXPERIENCE
+MOVIEVAULT 3.0.1 — HOTFIX
 
-PODMIEŃ NA GITHUBIE CAŁĄ ZAWARTOŚĆ PACZKI (poza folderem Apps Script, który pozostaje bez zmian).
+Naprawiono:
+- brak ładowania wcześniej dodanych filmów,
+- statystyki pozostające na 0,
+- niedziałające przyciski Home / Kolekcja / Dodaj,
+- zatrzymywanie całego JavaScriptu podczas startu,
+- stary cache Service Workera.
 
-Najważniejsze nowości:
-- nowy ekran Home w stylu aplikacji streamingowej,
-- logo MovieVault w nagłówku i hero,
-- codzienny Film dnia,
-- działające Movie Roulette / „Co dziś oglądam?”,
-- poziome półki: ostatnio dodane, horrory i thrillery, Blu-ray i 4K,
-- wyszukiwarka kolekcji na Home,
-- interaktywne statystyki,
-- zachowany Cinematic Mode 2.3 oraz naprawione przewijanie mobilne.
+NA GITHUBIE PODMIEŃ:
+- app.js
+- index.html
+- sw.js
 
-Google Apps Script i arkusza nie zmieniaj. Nie uruchamiaj setup().
-Po publikacji wykonaj Ctrl+F5, a na iPhonie zamknij i otwórz kartę ponownie.
+Pozostałych plików nie musisz zmieniać.
+
+Po publikacji:
+1. Poczekaj, aż GitHub Pages zakończy deployment.
+2. Na komputerze naciśnij Ctrl+Shift+R albo Ctrl+F5.
+3. Gdyby nadal była stara wersja:
+   Chrome -> F12 -> Application -> Service Workers -> Unregister,
+   następnie odśwież stronę.
+4. Na iPhonie zamknij kartę i otwórz stronę ponownie. W razie potrzeby
+   wyczyść dane witryny dla GitHub Pages.
+
+Google Apps Script i Arkusz pozostają bez zmian.
+Nie uruchamiaj setup().
