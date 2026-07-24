@@ -49,7 +49,20 @@ async function saveMovie(event) {
     shelf: $("shelfInput").value.trim(),
     notes: $("notesInput").value.trim(),
     tmdbId: selected.tmdbId || previous.tmdbId || "",
-    poster: selected.poster || previous.poster || ""
+    poster: selected.poster || previous.poster || "",
+    originalTitle: selected.originalTitle || previous.originalTitle || "",
+    description: selected.description || previous.description || "",
+    genres: Array.isArray(selected.genres)
+      ? selected.genres.join(" | ")
+      : (selected.genres || previous.genres || ""),
+    runtime: selected.runtime || previous.runtime || "",
+    director: selected.director || previous.director || "",
+    cast: Array.isArray(selected.cast)
+      ? selected.cast.join(" | ")
+      : (selected.cast || previous.cast || ""),
+    voteAverage: selected.voteAverage || previous.voteAverage || "",
+    backdrop: selected.backdrop || previous.backdrop || "",
+    trailer: selected.trailer || previous.trailer || ""
   };
 
   if (!movie.barcode || !movie.title || !movie.format) {

@@ -141,25 +141,66 @@ export function openMovie(barcode) {
     ? `<img class="details-poster" src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title || "Okładka filmu")}">`
     : `<div class="details-poster details-placeholder">🎬</div>`;
 
+  const backdropStyle = movie.backdrop
+    ? `style="background-image: linear-gradient(to top, #0b1220 0%, rgba(11,18,32,.15) 58%, rgba(11,18,32,.48) 100%), url('${escapeHtml(movie.backdrop)}')"`
+    : "";
+
+  const genres = splitMetadata(movie.genres);
+  const cast = splitMetadata(movie.cast);
+  const rating = movie.voteAverage
+    ? `<span class="rating-badge">★ ${escapeHtml(formatRating(movie.voteAverage))} TMDb</span>`
+    : "";
+
   $("dialogContent").innerHTML = `
-    <article class="movie-details">
+    <article class="movie-details cinematic-details">
+      <div class="cinematic-backdrop" ${backdropStyle}></div>
+
       <div class="details-visual">
-        <div class="details-backdrop"></div>
         ${poster}
       </div>
 
       <div class="details-copy">
         <p class="eyebrow">MovieVault Collection</p>
         <h2>${escapeHtml(movie.title || "Bez tytułu")}</h2>
+        ${movie.originalTitle && movie.originalTitle !== movie.title
+          ? `<p class="original-title">${escapeHtml(movie.originalTitle)}</p>`
+          : ""}
 
         <div class="details-badges">
           <span>${escapeHtml(movie.format || "Brak formatu")}</span>
           <span>${escapeHtml(movie.year || "Rok nieznany")}</span>
+          ${movie.runtime ? `<span>${escapeHtml(formatRuntime(movie.runtime))}</span>` : ""}
           ${movie.shelf ? `<span>📍 ${escapeHtml(movie.shelf)}</span>` : ""}
+          ${rating}
         </div>
 
+        ${genres.length ? `
+          <div class="genre-list">
+            ${genres.map(genre => `<span>${escapeHtml(genre)}</span>`).join("")}
+          </div>` : ""}
+
+        ${movie.description ? `
+          <section class="details-section synopsis-section">
+            <h3>Opis filmu</h3>
+            <p>${escapeHtml(movie.description)}</p>
+          </section>` : ""}
+
+        ${movie.director || cast.length ? `
+          <section class="credits-grid">
+            ${movie.director ? `
+              <div>
+                <span>Reżyseria</span>
+                <strong>${escapeHtml(movie.director)}</strong>
+              </div>` : ""}
+            ${cast.length ? `
+              <div>
+                <span>Obsada</span>
+                <strong>${cast.map(escapeHtml).join(", ")}</strong>
+              </div>` : ""}
+          </section>` : ""}
+
         ${movie.notes ? `
-          <section class="details-section">
+          <section class="details-section collector-notes">
             <h3>Notatki kolekcjonera</h3>
             <p>${escapeHtml(movie.notes)}</p>
           </section>` : ""}
@@ -179,7 +220,10 @@ export function openMovie(barcode) {
           </div>
         </section>
 
-        <div class="dialog-actions">
+        <div class="dialog-actions metadata-actions">
+          ${movie.trailer
+            ? `<a class="trailer-button" href="${escapeHtml(movie.trailer)}" target="_blank" rel="noopener noreferrer">▶ Zwiastun</a>`
+            : ""}
           <button id="dialogEditButton" class="edit-button" type="button">Edytuj film</button>
           <button id="dialogDeleteButton" class="delete-button" type="button">Usuń</button>
         </div>
@@ -199,6 +243,27 @@ export function openMovie(barcode) {
   };
 }
 
+function splitMetadata(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return String(value || "")
+    .split(/\s*\|\s*|\s*,\s*/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function formatRuntime(value) {
+  const minutes = Number.parseInt(value, 10);
+  if (!minutes) return String(value || "");
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours} godz. ${rest} min` : `${rest} min`;
+}
+
+function formatRating(value) {
+  const rating = Number.parseFloat(value);
+  return Number.isFinite(rating) ? rating.toFixed(1) : String(value || "");
+}
+
 export function startEdit(barcode) {
   const movie = findMovie(barcode);
   if (!movie) return;
@@ -209,7 +274,16 @@ export function startEdit(barcode) {
     tmdbId: movie.tmdbId || "",
     poster: movie.poster || "",
     title: movie.title || "",
-    year: movie.year || ""
+    originalTitle: movie.originalTitle || "",
+    year: movie.year || "",
+    description: movie.description || "",
+    genres: movie.genres || "",
+    runtime: movie.runtime || "",
+    director: movie.director || "",
+    cast: movie.cast || "",
+    voteAverage: movie.voteAverage || "",
+    backdrop: movie.backdrop || "",
+    trailer: movie.trailer || ""
   };
 
   $("formEyebrow").textContent = "Edycja";
