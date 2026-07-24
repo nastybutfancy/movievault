@@ -2,288 +2,145 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover"
-  >
-
-  <meta name="theme-color" content="#2563eb">
-
-  <title>MovieVault</title>
-
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
-
-  <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>MovieVault 2.0</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css?v=20">
+  <script src="https://unpkg.com/@zxing/browser@latest"></script>
 </head>
-
 <body>
-  <header>🎬 MovieVault</header>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Twoja filmoteka</p>
+      <h1>MovieVault</h1>
+    </div>
+    <button id="refreshButton" class="icon-button" type="button" aria-label="Odśwież">↻</button>
+  </header>
 
-  <main>
-    <button
-      id="scanButton"
-      class="button scan"
-    >
-      📷 Skanuj kod
-    </button>
+  <main class="app-shell">
+    <section id="homeView" class="view">
+      <div class="hero">
+        <div>
+          <p class="hero-kicker">Domowe kino pod kontrolą</p>
+          <h2>Wszystkie filmy. Jedna półka w kieszeni.</h2>
+        </div>
 
-    <button
-      id="closeScannerButton"
-      class="button secondary hidden"
-    >
-      Zamknij skaner
-    </button>
+        <div class="stats-grid">
+          <article><strong id="totalStat">0</strong><span>Wszystkie</span></article>
+          <article><strong id="dvdStat">0</strong><span>DVD</span></article>
+          <article><strong id="blurayStat">0</strong><span>Blu-ray</span></article>
+          <article><strong id="uhdStat">0</strong><span>4K</span></article>
+        </div>
+      </div>
 
-    <section
-      id="scannerPanel"
-      class="panel hidden"
-    >
-      <video
-        id="preview"
-        playsinline
-        muted
-      ></video>
-
-      <p class="hint">
-        Umieść kod kreskowy pośrodku obrazu.
-      </p>
+      <div class="action-grid">
+        <button id="openScannerButton" class="primary-card" type="button">📷<span>Skanuj kod</span></button>
+        <button id="openCollectionButton" class="primary-card" type="button">🎞️<span>Kolekcja</span></button>
+        <button id="openAddButton" class="primary-card" type="button">➕<span>Dodaj film</span></button>
+        <button id="openSearchButton" class="primary-card" type="button">🔎<span>Szukaj</span></button>
+      </div>
     </section>
 
-    <section
-      id="resultPanel"
-      class="panel hidden"
-    ></section>
-
-    <button
-      id="collectionButton"
-      class="button collection"
-    >
-      📚 Moja kolekcja
-    </button>
-
-    <button
-      id="searchButton"
-      class="button search"
-    >
-      🔍 Szukaj w kolekcji
-    </button>
-
-    <button
-      id="addButton"
-      class="button add"
-    >
-      ➕ Dodaj film
-    </button>
-
-    <section
-      id="collectionPanel"
-      class="panel hidden"
-    >
-      <div class="collection-header">
+    <section id="collectionView" class="view hidden">
+      <div class="section-toolbar">
         <div>
+          <p class="eyebrow">Biblioteka</p>
           <h2>Moja kolekcja</h2>
-
-          <p
-            id="collectionCount"
-            class="hint"
-          >
-            Ładowanie...
-          </p>
         </div>
-
-        <button
-          id="refreshCollectionButton"
-          class="small-button"
-          type="button"
-        >
-          ↻ Odśwież
-        </button>
+        <button class="ghost-button back-home" type="button">Wróć</button>
       </div>
 
-      <input
-        id="collectionFilter"
-        placeholder="Filtruj po tytule, roku, formacie lub kodzie"
-      >
-
-      <label for="collectionSort">
-        Sortowanie
-      </label>
-
-      <select id="collectionSort">
-        <option value="title">
-          Tytuł A–Z
-        </option>
-
-        <option value="newest">
-          Ostatnio dodane
-        </option>
-
-        <option value="oldest">
-          Najdawniej dodane
-        </option>
-
-        <option value="year">
-          Rok filmu
-        </option>
-      </select>
-
-      <div id="collectionResults"></div>
-    </section>
-
-    <section
-      id="searchPanel"
-      class="panel hidden"
-    >
-      <h2>Szukaj w kolekcji</h2>
-
-      <input
-        id="searchQuery"
-        placeholder="Tytuł albo kod kreskowy"
-      >
-
-      <button
-        id="runSearchButton"
-        class="button search"
-      >
-        Szukaj
-      </button>
-
-      <div id="searchResults"></div>
-    </section>
-
-    <section
-      id="addPanel"
-      class="panel hidden"
-    >
-      <h2>Dodaj film</h2>
-
-      <label for="barcode">
-        Kod kreskowy
-      </label>
-
-      <input
-        id="barcode"
-        inputmode="numeric"
-      >
-
-      <label for="title">
-        Tytuł
-      </label>
-
-      <input
-        id="title"
-        placeholder="Na przykład: Blade Runner"
-      >
-
-      <label for="year">
-        Rok, opcjonalnie
-      </label>
-
-      <input
-        id="year"
-        inputmode="numeric"
-        placeholder="Na przykład: 1982"
-      >
-
-      <button
-        id="tmdbSearchButton"
-        class="button search"
-        type="button"
-      >
-        🎞 Znajdź dane filmu
-      </button>
-
-      <div id="tmdbStatus"></div>
-      <div id="tmdbResults"></div>
-
-      <section
-        id="selectedMoviePanel"
-        class="selected-movie hidden"
-      >
-        <img
-          id="selectedPoster"
-          class="selected-poster"
-          alt="Plakat filmu"
-        >
-
-        <div>
-          <strong id="selectedMovieTitle"></strong>
-
-          <p id="selectedMovieDetails"></p>
-          <p id="selectedMovieDescription"></p>
-        </div>
-      </section>
-
-      <label for="format">
-        Format
-      </label>
-
-      <select id="format">
-        <option>DVD</option>
-        <option>Blu-ray</option>
-        <option>4K UHD</option>
-      </select>
-
-      <label for="shelf">
-        Półka
-      </label>
-
-      <input
-        id="shelf"
-        placeholder="Na przykład: A3"
-      >
-
-      <label for="notes">
-        Uwagi
-      </label>
-
-      <textarea
-        id="notes"
-        rows="4"
-        placeholder="Opcjonalne informacje o wydaniu"
-      ></textarea>
-
-      <button
-        id="saveButton"
-        class="button add"
-      >
-        Zapisz film
-      </button>
-    </section>
-
-    <section class="panel">
-      <h2>Kolekcja</h2>
-
-      <div class="stats">
-        <div>
-          DVD
-          <strong id="dvd">0</strong>
-        </div>
-
-        <div>
-          Blu-ray
-          <strong id="bluray">0</strong>
-        </div>
-
-        <div>
-          4K UHD
-          <strong id="uhd">0</strong>
-        </div>
-
-        <div>
-          Razem
-          <strong id="total">0</strong>
-        </div>
+      <div class="filters">
+        <input id="collectionFilter" type="search" placeholder="Tytuł, rok, format, półka...">
+        <select id="collectionSort">
+          <option value="title">Alfabetycznie</option>
+          <option value="newest">Najnowsze wpisy</option>
+          <option value="oldest">Najstarsze wpisy</option>
+          <option value="year">Rok filmu</option>
+        </select>
       </div>
 
-      <p class="hint">
-        Dane kolekcji są synchronizowane z Arkuszem Google.
-      </p>
+      <p id="collectionCount" class="muted"></p>
+      <div id="collectionGrid" class="poster-grid"></div>
+    </section>
+
+    <section id="formView" class="view hidden">
+      <div class="section-toolbar">
+        <div>
+          <p id="formEyebrow" class="eyebrow">Nowy wpis</p>
+          <h2 id="formTitle">Dodaj film</h2>
+        </div>
+        <button id="cancelFormButton" class="ghost-button" type="button">Anuluj</button>
+      </div>
+
+      <form id="movieForm" class="movie-form">
+        <label>Kod kreskowy<input id="barcodeInput" inputmode="numeric" required></label>
+        <label>Tytuł<input id="titleInput" required></label>
+        <label>Format
+          <select id="formatInput" required>
+            <option value="DVD">DVD</option>
+            <option value="Blu-ray">Blu-ray</option>
+            <option value="4K UHD">4K UHD</option>
+          </select>
+        </label>
+        <label>Rok<input id="yearInput" inputmode="numeric"></label>
+        <label>Półka<input id="shelfInput"></label>
+        <label>Uwagi<textarea id="notesInput" rows="3"></textarea></label>
+
+        <div class="tmdb-box">
+          <div class="tmdb-toolbar">
+            <strong>Dane z TMDb</strong>
+            <button id="tmdbSearchButton" class="secondary-button" type="button">Znajdź film</button>
+          </div>
+          <div id="tmdbStatus" class="muted"></div>
+          <div id="tmdbResults" class="tmdb-results"></div>
+          <div id="selectedTmdb" class="selected-tmdb hidden">
+            <img id="selectedPoster" alt="">
+            <div>
+              <strong id="selectedTmdbTitle"></strong>
+              <p id="selectedTmdbDetails" class="muted"></p>
+            </div>
+          </div>
+        </div>
+
+        <button id="saveMovieButton" class="save-button" type="submit">Zapisz film</button>
+      </form>
+    </section>
+
+    <section id="scannerView" class="view hidden">
+      <div class="section-toolbar">
+        <div>
+          <p class="eyebrow">Skaner</p>
+          <h2>Zeskanuj kod</h2>
+        </div>
+        <button id="closeScannerButton" class="ghost-button" type="button">Zamknij</button>
+      </div>
+      <video id="scannerPreview" playsinline></video>
+      <p id="scannerStatus" class="muted">Skieruj aparat na kod kreskowy.</p>
+    </section>
+
+    <section id="searchView" class="view hidden">
+      <div class="section-toolbar">
+        <div>
+          <p class="eyebrow">Wyszukiwarka</p>
+          <h2>Szukaj w kolekcji</h2>
+        </div>
+        <button class="ghost-button back-home" type="button">Wróć</button>
+      </div>
+      <div class="filters search-row">
+        <input id="searchInput" type="search" placeholder="Tytuł lub kod">
+        <button id="runSearchButton" class="secondary-button" type="button">Szukaj</button>
+      </div>
+      <div id="searchResults" class="list-results"></div>
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <dialog id="detailsDialog" class="movie-dialog">
+    <button id="closeDialogButton" class="dialog-close" type="button">×</button>
+    <div id="dialogContent"></div>
+  </dialog>
+
+  <script type="module" src="./app.js?v=20"></script>
 </body>
 </html>
