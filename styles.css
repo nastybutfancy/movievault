@@ -257,3 +257,39 @@ textarea { resize:vertical; }
   .poster-rail { grid-auto-columns:52%; }
   .collector-stats article { min-height:132px; padding:16px 10px; }
 }
+
+
+/* MovieVault 3.1.1 mobile collection fix */
+.collection-card { overflow: hidden; padding: 0; }
+.collection-card-top { display: block; min-width: 0; }
+.collection-cover,
+.collection-cover-placeholder {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 2 / 3;
+  height: auto;
+  object-fit: cover;
+  border-radius: 0;
+  background: #0b0e17;
+}
+.collection-cover-placeholder { display: grid; place-items: center; font-size: 48px; }
+.collection-main-info { padding: 20px 20px 12px; min-width: 0; }
+.collection-main-info h3 { margin: 0 0 14px; font-size: 25px; overflow-wrap: anywhere; }
+.collection-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.format-badge, .year-badge { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: #d8d9e0; }
+.collection-details { padding: 0 20px 18px; display: grid; gap: 12px; }
+.collection-detail { display: grid; gap: 4px; }
+.collection-detail span, .collection-added { color: var(--muted); font-size: 13px; }
+.collection-detail strong { overflow-wrap: anywhere; }
+.collection-notes { margin: 0 20px 18px; color: var(--muted); }
+.collection-added { padding: 0 20px 20px; }
+
+@media (max-width: 760px) {
+  #collectionPanel { padding-bottom: 105px; }
+  .collection-grid { grid-template-columns: 1fr; gap: 22px; }
+  .collection-card { width: 100%; max-width: 100%; }
+  .collection-cover,
+  .collection-cover-placeholder { max-height: none; }
+  .collection-toolbar { gap: 18px; }
+}

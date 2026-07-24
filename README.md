@@ -20,3 +20,9 @@ Po publikacji wykonaj twarde odświeżenie strony lub usuń dane witryny, jeśli
 
 ## Ważne
 Ta wersja nie zmienia backendu Google Apps Script. Korzysta z dotychczasowego API.
+
+
+## 3.1.1
+- naprawione skalowanie okładek w kolekcji na telefonie
+- naprawione uruchamianie skanera ZXing
+- dodatkowy odstęp pod dolną nawigacją

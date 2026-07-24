@@ -839,9 +839,15 @@ async function startScanner() {
   scanLock = false;
 
   try {
-    codeReader =
-      new ZXingBrowser
-        .BrowserMultiFormatReader();
+    const ZXingReader =
+      window.ZXingBrowser?.BrowserMultiFormatReader ||
+      window.ZXing?.BrowserMultiFormatReader;
+
+    if (!ZXingReader) {
+      throw new Error("Biblioteka skanera nie została załadowana. Odśwież stronę i spróbuj ponownie.");
+    }
+
+    codeReader = new ZXingReader();
 
     scannerControls =
       await codeReader
