@@ -275,32 +275,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-
-  const launchScanner = async () => {
-    showView("scannerView");
-
-    document.querySelectorAll("[data-view-target]").forEach(button => {
-      button.classList.remove("active");
-    });
-
-    try {
-      await startScanner();
-    } catch (error) {
-      console.error("Błąd skanera:", error);
-      const scannerStatus = $("scannerStatus");
-      if (scannerStatus) {
-        scannerStatus.textContent =
-          "Nie udało się uruchomić aparatu. Sprawdź uprawnienia przeglądarki.";
-      }
-    }
-  };
-
-  const openScannerButton = $("openScannerButton");
-  if (openScannerButton) openScannerButton.onclick = launchScanner;
-
-  const mobileScannerButton = $("mobileScannerButton");
-  if (mobileScannerButton) mobileScannerButton.onclick = launchScanner;
-
   const closeScannerButton = $("closeScannerButton");
   if (closeScannerButton) {
     closeScannerButton.onclick = () => {

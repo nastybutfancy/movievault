@@ -1,6 +1,6 @@
-import { apiRequest } from "./api-302.js";
-import { state } from "./state-302.js";
-import { $, escapeHtml, normalizeBarcode, showView, formatDate } from "./utils-302.js";
+import { apiRequest } from "./api.js";
+import { state } from "./state.js";
+import { $, escapeHtml, normalizeBarcode, showView, formatDate } from "./utils.js";
 
 let activeFormat = "all";
 

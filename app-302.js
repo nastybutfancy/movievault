@@ -1,329 +1,1711 @@
-import { apiRequest } from "./api-302.js";
-import { state } from "./state-302.js";
-import { $, normalizeBarcode, showView, escapeHtml } from "./utils-302.js";
-import {
-  loadCollection,
-  renderCollection,
-  clearEditState,
-  setCollectionFormat
-} from "./collection-302.js";
-import { searchTmdb } from "./tmdb-302.js";
-import { startScanner, stopScanner } from "./scanner-302.js";
-import { renderHome, setupHome } from "./home-302.js";
+const HOME_PANEL_ID = "homePanel";
 
-
-let dialogScrollPosition = 0;
-
-function lockBackgroundScroll() {
-  if (document.body.classList.contains("dialog-open")) return;
-
-  dialogScrollPosition = window.scrollY || window.pageYOffset || 0;
-
-  document.documentElement.classList.add("dialog-open");
-  document.body.classList.add("dialog-open");
-  document.body.style.top = `-${dialogScrollPosition}px`;
+function safeElement(id) {
+  return document.getElementById(id);
 }
 
-function unlockBackgroundScroll() {
-  if (!document.body.classList.contains("dialog-open")) return;
-
-  document.documentElement.classList.remove("dialog-open");
-  document.body.classList.remove("dialog-open");
-  document.body.style.top = "";
-
-  window.scrollTo(0, dialogScrollPosition);
-}
-
-function setupDialogScrollLock() {
-  const dialog = $("detailsDialog");
-
-  const syncDialogState = () => {
-    if (dialog.open) {
-      lockBackgroundScroll();
-
-      requestAnimationFrame(() => {
-        const scroller = dialog.querySelector(".cinematic-details");
-        if (scroller) scroller.scrollTop = 0;
-      });
-    } else {
-      unlockBackgroundScroll();
-    }
-  };
-
-  const observer = new MutationObserver(syncDialogState);
-  observer.observe(dialog, {
-    attributes: true,
-    attributeFilter: ["open"]
+function showHome() {
+  [
+    "homePanel",
+    "scannerPanel",
+    "resultPanel",
+    "collectionPanel",
+    "searchPanel",
+    "addPanel"
+  ].forEach(function (id) {
+    const node = safeElement(id);
+    if (node) node.classList.toggle("hidden", id !== HOME_PANEL_ID);
   });
-
-  dialog.addEventListener("close", unlockBackgroundScroll);
-  dialog.addEventListener("cancel", unlockBackgroundScroll);
+  setActiveNavigation("home");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  loadHomeDashboard();
 }
 
-function resetForm(barcode = "") {
-  clearEditState();
-  $("movieForm").reset();
-  $("barcodeInput").value = normalizeBarcode(barcode);
-  $("formEyebrow").textContent = "Nowy wpis";
-  $("formTitle").textContent = "Dodaj film";
-  $("saveMovieButton").textContent = "Zapisz film";
-  $("tmdbStatus").textContent = "";
-  $("tmdbResults").innerHTML = "";
-  $("selectedTmdb").classList.add("hidden");
-}
-
-async function updateStats() {
-  try {
-    const response = await apiRequest("stats");
-    const stats = response.stats || {};
-    $("totalStat").textContent = stats.total || 0;
-    $("dvdStat").textContent = stats.dvd || 0;
-    $("blurayStat").textContent = stats.bluray || 0;
-    $("uhdStat").textContent = stats.uhd || 0;
-  } catch (error) {
-    console.error("Nie udało się pobrać statystyk:", error);
+function setActiveNavigation(section) {
+  document.querySelectorAll(".nav-link, .mobile-nav button").forEach(function (button) {
+    button.classList.remove("active");
+  });
+  if (section === "home") {
+    document.querySelectorAll("[data-home]").forEach(function (button) {
+      button.classList.add("active");
+    });
   }
 }
 
-async function saveMovie(event) {
-  event.preventDefault();
+function openAddFromHome() {
+  prepareAdd("");
+  setActiveNavigation("add");
+}
 
-  const previous = state.editingMovie || {};
-  const selected = state.selectedTmdbMovie || {};
+function openScannerFromHome() {
+  startScanner();
+  setActiveNavigation("scan");
+}
 
-  const movie = {
-    barcode: normalizeBarcode($("barcodeInput").value),
-    title: $("titleInput").value.trim(),
-    format: $("formatInput").value,
-    year: $("yearInput").value.trim(),
-    shelf: $("shelfInput").value.trim(),
-    notes: $("notesInput").value.trim(),
-    tmdbId: selected.tmdbId || previous.tmdbId || "",
-    poster: selected.poster || previous.poster || "",
-    originalTitle: selected.originalTitle || previous.originalTitle || "",
-    description: selected.description || previous.description || "",
-    genres: Array.isArray(selected.genres)
-      ? selected.genres.join(" | ")
-      : (selected.genres || previous.genres || ""),
-    runtime: selected.runtime || previous.runtime || "",
-    director: selected.director || previous.director || "",
-    cast: Array.isArray(selected.cast)
-      ? selected.cast.join(" | ")
-      : (selected.cast || previous.cast || ""),
-    voteAverage: selected.voteAverage || previous.voteAverage || "",
-    backdrop: selected.backdrop || previous.backdrop || "",
-    trailer: selected.trailer || previous.trailer || ""
-  };
+function openSearchFromHome() {
+  showOnly("searchPanel");
+  setActiveNavigation("search");
+  safeElement("searchQuery")?.focus();
+}
 
-  if (!movie.barcode || !movie.title || !movie.format) {
-    alert("Podaj kod kreskowy, tytuł i format.");
+function openCollectionWithFormat(format) {
+  showOnly("collectionPanel");
+  setActiveNavigation("collection");
+  const filter = safeElement("collectionFilter");
+  if (filter) filter.value = format || "";
+  loadCollection();
+}
+
+function normalizeFormat(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function moviePoster(movie) {
+  return movie.poster || movie.posterUrl || movie.image || "";
+}
+
+function movieGenres(movie) {
+  if (Array.isArray(movie.genres)) return movie.genres;
+  return String(movie.genres || movie.genre || "")
+    .split(/[,|]/)
+    .map(function (item) { return item.trim(); })
+    .filter(Boolean);
+}
+
+function getMovieRating(movie) {
+  const value = Number(movie.rating || movie.voteAverage || movie.tmdbRating || 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getAddedTimestamp(movie) {
+  const raw = movie.addedAt || movie.dateAdded || movie.date || "";
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function loadHomeDashboard(force) {
+  const recentNode = safeElement("recentMovies");
+  if (!recentNode) return;
+
+  try {
+    if (force || !collectionCache.length) {
+      const response = await apiRequest("collection", { sort: "newest" });
+      collectionCache = Array.isArray(response.movies) ? response.movies : [];
+    }
+    renderHomeDashboard();
+  } catch (error) {
+    recentNode.innerHTML = '<div class="loading-card">Nie udało się pobrać kolekcji.</div>';
+    console.error("Home dashboard:", error);
+  }
+}
+
+function renderHomeDashboard() {
+  renderRecentMovies();
+  renderHomeFormatCounts();
+  renderCollectorStats();
+}
+
+function renderRecentMovies() {
+  const node = safeElement("recentMovies");
+  if (!node) return;
+
+  const recent = collectionCache
+    .slice()
+    .sort(function (a, b) { return getAddedTimestamp(b) - getAddedTimestamp(a); })
+    .slice(0, 8);
+
+  if (!recent.length) {
+    node.innerHTML = '<div class="loading-card">Twoja kolekcja czeka na pierwszy film.</div>';
     return;
   }
 
-  const editing = Boolean(state.editingOriginalBarcode);
-  $("saveMovieButton").disabled = true;
-  $("saveMovieButton").textContent = editing ? "Zapisywanie zmian..." : "Zapisywanie...";
+  node.innerHTML = recent.map(function (movie, index) {
+    const poster = moviePoster(movie);
+    const art = poster
+      ? '<img src="' + escapeHtml(poster) + '" alt="" loading="lazy">'
+      : '<div class="poster-placeholder">▥</div>';
+    return `
+      <button class="poster-card" type="button" onclick="openHomeMovie(${index})">
+        <span class="poster-art">${art}</span>
+        <span class="poster-meta">
+          <strong>${escapeHtml(movie.title || "Bez tytułu")}</strong>
+          <small><span>${escapeHtml(movie.year || "—")}</span><span class="format-pill">${escapeHtml(movie.format || "Film")}</span></small>
+        </span>
+      </button>
+    `;
+  }).join("");
 
-  try {
-    const result = await apiRequest(
-      editing ? "update" : "add",
-      editing ? { originalBarcode: state.editingOriginalBarcode, ...movie } : movie
+  window.homeRecentMovies = recent;
+}
+
+function renderHomeFormatCounts() {
+  const counts = { dvd: 0, bluray: 0, uhd: 0, steelbook: 0, boxset: 0, vhs: 0 };
+  collectionCache.forEach(function (movie) {
+    const format = normalizeFormat(movie.format);
+    if (format.includes("steelbook")) counts.steelbook++;
+    else if (format.includes("boxset") || format.includes("box")) counts.boxset++;
+    else if (format.includes("vhs")) counts.vhs++;
+    else if (format.includes("4k") || format.includes("uhd")) counts.uhd++;
+    else if (format.includes("bluray") || format.includes("blu")) counts.bluray++;
+    else if (format.includes("dvd")) counts.dvd++;
+  });
+
+  const map = {
+    homeDvd: counts.dvd,
+    homeBluray: counts.bluray,
+    homeUhd: counts.uhd,
+    homeSteelbook: counts.steelbook,
+    homeBoxset: counts.boxset,
+    homeVhs: counts.vhs,
+    homeTotal: collectionCache.length
+  };
+  Object.keys(map).forEach(function (id) {
+    const node = safeElement(id);
+    if (node) node.textContent = map[id];
+  });
+}
+
+function renderCollectorStats() {
+  const years = collectionCache
+    .map(function (movie) { return Number(movie.year); })
+    .filter(function (year) { return year > 1800 && year < 2200; });
+
+  const oldestYear = years.length ? Math.min.apply(null, years) : null;
+  const newestYear = years.length ? Math.max.apply(null, years) : null;
+  const oldestMovie = collectionCache.find(function (movie) { return Number(movie.year) === oldestYear; });
+  const newestMovie = collectionCache.find(function (movie) { return Number(movie.year) === newestYear; });
+
+  setText("oldestYear", oldestYear || "—");
+  setText("newestYear", newestYear || "—");
+  setText("oldestTitle", oldestMovie?.title || "Brak danych");
+  setText("newestTitle", newestMovie?.title || "Brak danych");
+
+  const ratings = collectionCache.map(getMovieRating).filter(function (rating) { return rating > 0; });
+  const average = ratings.length ? (ratings.reduce(function (sum, item) { return sum + item; }, 0) / ratings.length).toFixed(1) : "—";
+  setText("averageRating", average === "—" ? average : "★ " + average);
+
+  const genreCount = {};
+  const directorCount = {};
+  collectionCache.forEach(function (movie) {
+    movieGenres(movie).forEach(function (genre) {
+      genreCount[genre] = (genreCount[genre] || 0) + 1;
+    });
+    const director = String(movie.director || "").trim();
+    if (director) directorCount[director] = (directorCount[director] || 0) + 1;
+  });
+
+  const topGenre = topEntry(genreCount);
+  const topDirector = topEntry(directorCount);
+  setText("topGenre", topGenre ? topGenre[0] : "—");
+  setText("topGenreCount", topGenre ? topGenre[1] + " filmów" : "Brak danych");
+  setText("topDirector", topDirector ? topDirector[0] : "—");
+  setText("topDirectorCount", topDirector ? topDirector[1] + " filmów" : "Brak danych");
+}
+
+function topEntry(object) {
+  const entries = Object.entries(object);
+  if (!entries.length) return null;
+  entries.sort(function (a, b) { return b[1] - a[1]; });
+  return entries[0];
+}
+
+function setText(id, value) {
+  const node = safeElement(id);
+  if (node) node.textContent = value;
+}
+
+function openHomeMovie(index) {
+  const movie = window.homeRecentMovies?.[index];
+  if (!movie) return;
+  showMovieSnapshot(movie);
+}
+
+function showMovieSnapshot(movie) {
+  const modal = safeElement("randomModal");
+  const content = safeElement("randomMovieContent");
+  if (!modal || !content) return;
+  const poster = moviePoster(movie);
+  content.innerHTML = `
+    <div class="random-movie">
+      ${poster ? '<img src="' + escapeHtml(poster) + '" alt="">' : '<div class="random-placeholder">▥</div>'}
+      <div>
+        <h2 id="randomTitle">${escapeHtml(movie.title || "Bez tytułu")}</h2>
+        <p>${escapeHtml([movie.year, movie.format].filter(Boolean).join(" • "))}</p>
+        <p>${escapeHtml(movie.shelf ? "Półka: " + movie.shelf : "Pozycja z Twojej kolekcji")}</p>
+      </div>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function drawRandomMovie() {
+  if (!collectionCache.length) {
+    loadHomeDashboard(true).then(drawRandomMovie);
+    return;
+  }
+  const movie = collectionCache[Math.floor(Math.random() * collectionCache.length)];
+  showMovieSnapshot(movie);
+}
+
+function closeRandomModal() {
+  safeElement("randomModal")?.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function setupCollectorExperience() {
+  document.querySelectorAll("[data-home]").forEach(function (button) {
+    button.addEventListener("click", showHome);
+  });
+  document.querySelectorAll("[data-open-collection], [data-mobile-collection]").forEach(function (button) {
+    button.addEventListener("click", function () { openCollectionWithFormat(""); });
+  });
+  document.querySelectorAll("[data-mobile-add]").forEach(function (button) {
+    button.addEventListener("click", openAddFromHome);
+  });
+  document.querySelectorAll("[data-mobile-scan]").forEach(function (button) {
+    button.addEventListener("click", openScannerFromHome);
+  });
+  document.querySelectorAll("[data-mobile-search]").forEach(function (button) {
+    button.addEventListener("click", openSearchFromHome);
+  });
+  document.querySelectorAll(".action-card").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const action = button.dataset.action;
+      if (action === "add") openAddFromHome();
+      if (action === "scan") openScannerFromHome();
+      if (action === "random") drawRandomMovie();
+    });
+  });
+  document.querySelectorAll("[data-format]").forEach(function (button) {
+    button.addEventListener("click", function () { openCollectionWithFormat(button.dataset.format); });
+  });
+  document.querySelectorAll("[data-close-random]").forEach(function (button) {
+    button.addEventListener("click", closeRandomModal);
+  });
+  safeElement("drawAgainButton")?.addEventListener("click", drawRandomMovie);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeRandomModal();
+  });
+  document.querySelectorAll("[data-discover]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      openCollectionWithFormat("");
+      const filter = safeElement("collectionFilter");
+      if (filter) {
+        filter.placeholder = "Wpisz " + ({
+          genre: "gatunek",
+          director: "nazwisko reżysera",
+          year: "rok",
+          series: "nazwę serii",
+          country: "kraj",
+          actor: "nazwisko aktora"
+        }[button.dataset.discover] || "szukaną wartość");
+        filter.focus();
+      }
+    });
+  });
+  showHome();
+}
+
+document.addEventListener("DOMContentLoaded", setupCollectorExperience);
+
+
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbyQTE2JyHjVngVHs-OlLIuMHknWa-u81Jx-jG8sJ1K8WpbQi5NZYDvRHOLy2C1gFzoKTQ/exec";
+
+let codeReader = null;
+let scannerControls = null;
+let scanLock = false;
+
+let tmdbResultsCache = [];
+let selectedTmdbMovie = null;
+
+let collectionCache = [];
+let editingOriginalBarcode = "";
+let editingMovieSnapshot = null;
+
+const $ = id => document.getElementById(id);
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+    $("scanButton").addEventListener(
+      "click",
+      startScanner
     );
 
+    $("closeScannerButton").addEventListener(
+      "click",
+      stopScanner
+    );
+
+    $("collectionButton").addEventListener(
+      "click",
+      openCollection
+    );
+
+    $("refreshCollectionButton").addEventListener(
+      "click",
+      loadCollection
+    );
+
+    $("collectionFilter").addEventListener(
+      "input",
+      renderCollection
+    );
+
+    $("collectionSort").addEventListener(
+      "change",
+      loadCollection
+    );
+
+    $("searchButton").addEventListener(
+      "click",
+      function () {
+        showOnly("searchPanel");
+      }
+    );
+
+    $("addButton").addEventListener(
+      "click",
+      function () {
+        prepareAdd("");
+      }
+    );
+
+    $("runSearchButton").addEventListener(
+      "click",
+      runSearch
+    );
+
+    $("tmdbSearchButton").addEventListener(
+      "click",
+      searchTmdb
+    );
+
+    $("saveButton").addEventListener(
+      "click",
+      addMovie
+    );
+
+    $("searchQuery").addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          runSearch();
+        }
+      }
+    );
+
+    $("title").addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          searchTmdb();
+        }
+      }
+    );
+
+    updateStats();
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("./sw.js")
+        .catch(console.error);
+    }
+  }
+);
+
+function apiRequest(
+  action,
+  parameters = {}
+) {
+  return new Promise(
+    function (resolve, reject) {
+      const callbackName =
+        "movieVaultCallback_" +
+        Date.now() +
+        "_" +
+        Math.floor(
+          Math.random() * 100000
+        );
+
+      const script =
+        document.createElement("script");
+
+      const query =
+        new URLSearchParams({
+          action: action,
+          callback: callbackName,
+          ...parameters
+        });
+
+      const timeout =
+        setTimeout(
+          function () {
+            cleanup();
+
+            reject(
+              new Error(
+                "Serwer nie odpowiedział."
+              )
+            );
+          },
+          20000
+        );
+
+      function cleanup() {
+        clearTimeout(timeout);
+
+        if (script.parentNode) {
+          script.parentNode.removeChild(
+            script
+          );
+        }
+
+        delete window[callbackName];
+      }
+
+      window[callbackName] =
+        function (data) {
+          cleanup();
+
+          if (
+            data &&
+            data.success === false
+          ) {
+            reject(
+              new Error(
+                data.message ||
+                "Wystąpił błąd API."
+              )
+            );
+
+            return;
+          }
+
+          resolve(data);
+        };
+
+      script.onerror = function () {
+        cleanup();
+
+        reject(
+          new Error(
+            "Nie udało się połączyć z Arkuszem Google."
+          )
+        );
+      };
+
+      script.src =
+        API_URL +
+        "?" +
+        query.toString();
+
+      document.body.appendChild(script);
+    }
+  );
+}
+
+function normalizeBarcode(value) {
+  return String(value || "")
+    .replace(/\D/g, "");
+}
+
+function showOnly(panelId) {
+  [
+    "homePanel",
+    "scannerPanel",
+    "resultPanel",
+    "collectionPanel",
+    "searchPanel",
+    "addPanel"
+  ].forEach(
+    function (id) {
+      $(id).classList.toggle(
+        "hidden",
+        id !== panelId
+      );
+    }
+  );
+}
+
+async function openCollection() {
+  showOnly("collectionPanel");
+  await loadCollection();
+}
+
+async function loadCollection() {
+  const sort =
+    $("collectionSort").value;
+
+  $("collectionCount").textContent =
+    "Ładowanie kolekcji...";
+
+  $("collectionResults").innerHTML = `
+    <div class="movie">
+      Pobieram filmy z Arkusza Google...
+    </div>
+  `;
+
+  try {
+    const response =
+      await apiRequest(
+        "collection",
+        {
+          sort: sort
+        }
+      );
+
+    collectionCache =
+      Array.isArray(response.movies)
+        ? response.movies
+        : [];
+
+    renderCollection();
+    renderHomeDashboard();
+  } catch (error) {
+    $("collectionCount").textContent =
+      "Nie udało się pobrać kolekcji.";
+
+    $("collectionResults").innerHTML = `
+      <div class="movie owned">
+        <strong>Błąd</strong>
+
+        <p>
+          ${escapeHtml(error.message)}
+        </p>
+      </div>
+    `;
+  }
+}
+
+function renderCollection() {
+  const filter =
+    $("collectionFilter")
+      .value
+      .trim()
+      .toLowerCase();
+
+  const visibleMovies =
+    collectionCache.filter(
+      function (movie) {
+        if (!filter) {
+          return true;
+        }
+
+        const searchableText = [
+          movie.title,
+          movie.year,
+          movie.format,
+          movie.shelf,
+          movie.barcode,
+          movie.notes
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(
+          filter
+        );
+      }
+    );
+
+  $("collectionCount").textContent =
+    filter
+      ? (
+          "Znaleziono: " +
+          visibleMovies.length +
+          " z " +
+          collectionCache.length
+        )
+      : (
+          "Liczba filmów: " +
+          collectionCache.length
+        );
+
+  if (!visibleMovies.length) {
+    $("collectionResults").innerHTML = `
+      <div class="empty-collection">
+        <div class="empty-collection-icon">
+          🎞️
+        </div>
+
+        <strong>
+          ${
+            collectionCache.length
+              ? "Brak pasujących filmów"
+              : "Kolekcja jest pusta"
+          }
+        </strong>
+
+        <p>
+          ${
+            collectionCache.length
+              ? "Spróbuj zmienić tekst wyszukiwania."
+              : "Zeskanuj kod albo dodaj pierwszy film."
+          }
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+  $("collectionResults").innerHTML =
+    visibleMovies
+      .map(collectionMovieCard)
+      .join("");
+}
+
+function collectionMovieCard(movie) {
+  const formatClass = getFormatClass(movie.format);
+  const year = movie.year ? escapeHtml(movie.year) : "—";
+  const cover = movie.poster
+    ? `<img class="collection-cover" src="${escapeHtml(movie.poster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
+    : `<div class="collection-cover-placeholder">🎬</div>`;
+
+  const barcode = normalizeBarcode(movie.barcode);
+
+  return `
+    <button class="collection-card" type="button" onclick="openMovieDetails('${escapeHtml(barcode)}')">
+      <div class="collection-cover-frame">${cover}</div>
+      <div class="collection-main-info">
+        <h3>${escapeHtml(movie.title || "Bez tytułu")}</h3>
+        <div class="collection-badges">
+          <span class="format-badge ${formatClass}">${escapeHtml(movie.format || "Film")}</span>
+          <span class="year-badge">${year}</span>
+        </div>
+      </div>
+    </button>
+  `;
+}
+
+
+function findCollectionMovie(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  return collectionCache.find(function (movie) {
+    return normalizeBarcode(movie.barcode) === normalized;
+  });
+}
+
+function splitMovieMetadata(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return String(value || "")
+    .split(/\s*\|\s*|\s*,\s*/)
+    .map(function (item) { return item.trim(); })
+    .filter(Boolean);
+}
+
+function formatMovieRuntime(value) {
+  const minutes = Number.parseInt(value, 10);
+  if (!minutes) return String(value || "");
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? hours + " godz. " + rest + " min" : rest + " min";
+}
+
+function openMovieDetails(barcode) {
+  const movie = findCollectionMovie(barcode);
+  const dialog = $("detailsDialog");
+  const content = $("dialogContent");
+  if (!movie || !dialog || !content) return;
+
+  const poster = movie.poster
+    ? `<img class="details-poster" src="${escapeHtml(movie.poster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}">`
+    : `<div class="details-poster details-placeholder">🎬</div>`;
+
+  const genres = splitMovieMetadata(movie.genres);
+  const cast = splitMovieMetadata(movie.cast);
+  const rating = Number.parseFloat(movie.voteAverage || movie.rating || movie.tmdbRating || 0);
+  const ratingMarkup = Number.isFinite(rating) && rating > 0
+    ? `<span class="detail-pill rating-pill">★ ${rating.toFixed(1)} TMDb</span>`
+    : "";
+  const backdrop = movie.backdrop
+    ? `style="background-image:linear-gradient(to top,#0c1120 0%,rgba(12,17,32,.32) 56%,rgba(12,17,32,.72) 100%),url('${escapeHtml(movie.backdrop)}')"`
+    : "";
+
+  content.innerHTML = `
+    <article class="movie-details-card">
+      <div class="details-backdrop" ${backdrop}></div>
+      <div class="details-layout">
+        <div class="details-visual">${poster}</div>
+        <div class="details-copy">
+          <p class="eyebrow">TWÓJ EGZEMPLARZ</p>
+          <h2>${escapeHtml(movie.title || "Bez tytułu")}</h2>
+          ${movie.originalTitle && movie.originalTitle !== movie.title ? `<p class="original-title">${escapeHtml(movie.originalTitle)}</p>` : ""}
+
+          <div class="details-pills">
+            <span class="detail-pill">${escapeHtml(movie.format || "Brak formatu")}</span>
+            <span class="detail-pill">${escapeHtml(movie.year || "Rok nieznany")}</span>
+            ${movie.runtime ? `<span class="detail-pill">${escapeHtml(formatMovieRuntime(movie.runtime))}</span>` : ""}
+            ${movie.shelf ? `<span class="detail-pill">Półka: ${escapeHtml(movie.shelf)}</span>` : ""}
+            ${ratingMarkup}
+          </div>
+
+          ${genres.length ? `<div class="genre-list">${genres.map(function (genre) { return `<span>${escapeHtml(genre)}</span>`; }).join("")}</div>` : ""}
+
+          ${movie.description ? `<section class="details-section"><h3>Opis filmu</h3><p>${escapeHtml(movie.description)}</p></section>` : ""}
+
+          ${(movie.director || cast.length) ? `<section class="credits-grid">
+            ${movie.director ? `<div><span>Reżyseria</span><strong>${escapeHtml(movie.director)}</strong></div>` : ""}
+            ${cast.length ? `<div><span>Obsada</span><strong>${cast.map(escapeHtml).join(", ")}</strong></div>` : ""}
+          </section>` : ""}
+
+          ${movie.notes ? `<section class="details-section collector-notes"><h3>Notatki kolekcjonera</h3><p>${escapeHtml(movie.notes)}</p></section>` : ""}
+
+          <div class="details-actions">
+            ${movie.trailer ? `<a class="trailer-button" href="${escapeHtml(movie.trailer)}" target="_blank" rel="noopener noreferrer">▶ Zwiastun</a>` : ""}
+            <button id="dialogEditButton" class="edit-button" type="button">Edytuj</button>
+            <button id="dialogDeleteButton" class="delete-button" type="button">Usuń</button>
+          </div>
+        </div>
+      </div>
+    </article>`;
+
+  dialog.showModal();
+  document.body.style.overflow = "hidden";
+
+  $("dialogEditButton").onclick = function () {
+    dialog.close();
+    startEditMovie(barcode);
+  };
+  $("dialogDeleteButton").onclick = async function () {
+    dialog.close();
+    await deleteMovieFromCollection(barcode);
+  };
+}
+
+function closeDetailsDialog() {
+  const dialog = $("detailsDialog");
+  if (dialog && dialog.open) dialog.close();
+  document.body.style.overflow = "";
+}
+
+function startEditMovie(barcode) {
+  const movie = findCollectionMovie(barcode);
+  if (!movie) return;
+
+  editingOriginalBarcode = normalizeBarcode(movie.barcode);
+  editingMovieSnapshot = { ...movie };
+  selectedTmdbMovie = {
+    tmdbId: movie.tmdbId || "",
+    poster: movie.poster || "",
+    title: movie.title || "",
+    originalTitle: movie.originalTitle || "",
+    year: movie.year || "",
+    description: movie.description || "",
+    genres: movie.genres || "",
+    runtime: movie.runtime || "",
+    director: movie.director || "",
+    cast: movie.cast || "",
+    voteAverage: movie.voteAverage || "",
+    backdrop: movie.backdrop || "",
+    trailer: movie.trailer || ""
+  };
+
+  showOnly("addPanel");
+  setActiveNavigation("add");
+  $("barcode").value = movie.barcode || "";
+  $("title").value = movie.title || "";
+  $("format").value = movie.format || "DVD";
+  $("year").value = movie.year || "";
+  $("shelf").value = movie.shelf || "";
+  $("notes").value = movie.notes || "";
+  $("saveButton").textContent = "Zapisz zmiany";
+
+  if (movie.poster) {
+    $("selectedPoster").src = movie.poster;
+    $("selectedPoster").classList.remove("hidden");
+    $("selectedMovieTitle").textContent = movie.title || "";
+    $("selectedMovieDetails").textContent = [movie.year, movie.director ? "reż. " + movie.director : ""].filter(Boolean).join(" · ");
+    $("selectedMovieDescription").textContent = movie.description || "";
+    $("selectedMoviePanel").classList.remove("hidden");
+  } else {
+    $("selectedMoviePanel").classList.add("hidden");
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteMovieFromCollection(barcode) {
+  const movie = findCollectionMovie(barcode);
+  if (!movie) return;
+
+  if (!confirm(`Usunąć film „${movie.title || "Bez tytułu"}”?\n\nTej operacji nie można cofnąć.`)) return;
+
+  try {
+    await apiRequest("delete", { barcode: movie.barcode });
+    collectionCache = collectionCache.filter(function (item) {
+      return normalizeBarcode(item.barcode) !== normalizeBarcode(barcode);
+    });
+    renderCollection();
+    renderHomeDashboard();
+    await updateStats();
+    alert("Film został usunięty.");
+  } catch (error) {
+    alert("Nie udało się usunąć filmu: " + error.message);
+  }
+}
+
+function resetEditingState() {
+  editingOriginalBarcode = "";
+  editingMovieSnapshot = null;
+  const saveButton = $("saveButton");
+  if (saveButton) saveButton.textContent = "Zapisz film";
+}
+
+function getFormatClass(format) {
+  const normalized =
+    String(format || "")
+      .trim()
+      .toLowerCase();
+
+  if (normalized === "dvd") {
+    return "format-dvd";
+  }
+
+  if (
+    normalized === "blu-ray" ||
+    normalized === "bluray" ||
+    normalized === "blu ray"
+  ) {
+    return "format-bluray";
+  }
+
+  if (
+    normalized === "4k" ||
+    normalized === "4k uhd" ||
+    normalized === "uhd"
+  ) {
+    return "format-uhd";
+  }
+
+  return "";
+}
+
+function formatAddedDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const text =
+    String(value).trim();
+
+  const match =
+    text.match(
+      /^(\d{4})-(\d{2})-(\d{2})/
+    );
+
+  if (match) {
+    return (
+      match[3] +
+      "." +
+      match[2] +
+      "." +
+      match[1]
+    );
+  }
+
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return text;
+  }
+
+  return date.toLocaleDateString(
+    "pl-PL"
+  );
+}
+
+async function startScanner() {
+  showOnly("scannerPanel");
+
+  $("closeScannerButton")
+    .classList.remove("hidden");
+
+  scanLock = false;
+
+  try {
+    const ZXingReader =
+      window.ZXingBrowser?.BrowserMultiFormatReader ||
+      window.ZXing?.BrowserMultiFormatReader;
+
+    if (!ZXingReader) {
+      throw new Error("Biblioteka skanera nie została załadowana. Odśwież stronę i spróbuj ponownie.");
+    }
+
+    codeReader = new ZXingReader();
+
+    scannerControls =
+      await codeReader
+        .decodeFromConstraints(
+          {
+            audio: false,
+
+            video: {
+              facingMode: {
+                ideal: "environment"
+              },
+
+              width: {
+                ideal: 1280
+              },
+
+              height: {
+                ideal: 720
+              }
+            }
+          },
+
+          $("preview"),
+
+          function (result) {
+            if (
+              result &&
+              !scanLock
+            ) {
+              scanLock = true;
+
+              const barcode =
+                normalizeBarcode(
+                  result.getText()
+                );
+
+              handleBarcode(barcode);
+            }
+          }
+        );
+  } catch (error) {
+    $("scannerPanel").innerHTML = `
+      <div class="movie owned">
+        <strong>
+          Nie udało się uruchomić kamery.
+        </strong>
+
+        <p>
+          ${escapeHtml(
+            error.message ||
+            String(error)
+          )}
+        </p>
+      </div>
+    `;
+  }
+}
+
+function stopScanner() {
+  if (scannerControls) {
+    scannerControls.stop();
+  }
+
+  scannerControls = null;
+  codeReader = null;
+
+  $("closeScannerButton")
+    .classList.add("hidden");
+
+  $("scannerPanel")
+    .classList.add("hidden");
+}
+
+async function handleBarcode(barcode) {
+  stopScanner();
+
+  if (!barcode) {
+    return;
+  }
+
+  $("resultPanel").className =
+    "panel";
+
+  $("resultPanel")
+    .classList.remove("hidden");
+
+  $("resultPanel").innerHTML = `
+    <div class="result-title">
+      Sprawdzam kolekcję...
+    </div>
+
+    Kod:
+    ${escapeHtml(barcode)}
+  `;
+
+  try {
+    const response =
+      await apiRequest(
+        "find",
+        {
+          barcode: barcode
+        }
+      );
+
+    renderScanResult(
+      barcode,
+      response.movie
+    );
+  } catch (error) {
+    $("resultPanel").className =
+      "panel owned";
+
+    $("resultPanel").innerHTML = `
+      <div class="result-title">
+        Błąd połączenia
+      </div>
+
+      <p>
+        ${escapeHtml(error.message)}
+      </p>
+
+      <button
+        class="button scan"
+        onclick="startScanner()"
+      >
+        Spróbuj ponownie
+      </button>
+    `;
+  }
+}
+
+function renderScanResult(
+  barcode,
+  movie
+) {
+  $("resultPanel")
+    .classList.remove("hidden");
+
+  if (movie) {
+    navigator.vibrate?.(
+      [250, 100, 250]
+    );
+
+    $("resultPanel").className =
+      "panel owned";
+
+    $("resultPanel").innerHTML = `
+      <div class="result-title">
+        🟥 JUŻ POSIADASZ
+      </div>
+
+      <strong>
+        ${escapeHtml(movie.title)}
+      </strong>
+
+      <br>
+
+      ${escapeHtml(
+        movie.format || ""
+      )}
+
+      <br>
+
+      Rok:
+      ${escapeHtml(
+        movie.year || "brak"
+      )}
+
+      <br>
+
+      Półka:
+      ${escapeHtml(
+        movie.shelf || "brak"
+      )}
+
+      <br>
+
+      Kod:
+      ${escapeHtml(movie.barcode)}
+
+      <br><br>
+
+      <button
+        class="button collection"
+        onclick="openCollection()"
+      >
+        📚 Moja kolekcja
+      </button>
+
+      <button
+        class="button scan"
+        onclick="startScanner()"
+      >
+        Skanuj następny
+      </button>
+    `;
+
+    return;
+  }
+
+  navigator.vibrate?.(120);
+
+  $("resultPanel").className =
+    "panel missing";
+
+  $("resultPanel").innerHTML = `
+    <div class="result-title">
+      🟩 NIE MA W KOLEKCJI
+    </div>
+
+    Kod:
+    ${escapeHtml(barcode)}
+
+    <br><br>
+
+    <button
+      class="button add"
+      onclick="prepareAdd('${barcode}')"
+    >
+      Dodaj film
+    </button>
+
+    <button
+      class="button scan"
+      onclick="startScanner()"
+    >
+      Skanuj następny
+    </button>
+  `;
+}
+
+function prepareAdd(barcode) {
+  resetEditingState();
+  showOnly("addPanel");
+
+  resetTmdbSelection();
+
+  $("barcode").value =
+    normalizeBarcode(barcode);
+
+  $("title").focus();
+}
+
+async function searchTmdb() {
+  const title =
+    $("title").value.trim();
+
+  const year =
+    $("year").value.trim();
+
+  if (!title) {
+    alert(
+      "Najpierw wpisz tytuł filmu."
+    );
+
+    $("title").focus();
+    return;
+  }
+
+  const button =
+    $("tmdbSearchButton");
+
+  button.disabled = true;
+
+  button.textContent =
+    "Szukanie w TMDb...";
+
+  $("tmdbStatus").innerHTML = `
+    <div class="movie">
+      Szukam filmu...
+    </div>
+  `;
+
+  $("tmdbResults").innerHTML = "";
+
+  try {
+    const response =
+      await apiRequest(
+        "tmdbSearch",
+        {
+          query: title,
+          year: year
+        }
+      );
+
+    tmdbResultsCache =
+      Array.isArray(response.movies)
+        ? response.movies
+        : [];
+
+    renderTmdbResults();
+  } catch (error) {
+    $("tmdbStatus").innerHTML = `
+      <div class="movie owned">
+        ${escapeHtml(error.message)}
+      </div>
+    `;
+  } finally {
+    button.disabled = false;
+
+    button.textContent =
+      "🎞 Znajdź dane filmu";
+  }
+}
+
+function renderTmdbResults() {
+  if (!tmdbResultsCache.length) {
+    $("tmdbStatus").innerHTML = `
+      <div class="movie">
+        Nie znaleziono filmu.
+        Spróbuj wpisać inny tytuł
+        albo usuń rok.
+      </div>
+    `;
+
+    $("tmdbResults").innerHTML = "";
+    return;
+  }
+
+  $("tmdbStatus").innerHTML = `
+    <p class="hint">
+      Wybierz właściwy film:
+    </p>
+  `;
+
+  $("tmdbResults").innerHTML =
+    tmdbResultsCache
+      .map(
+        function (movie, index) {
+          const poster =
+            movie.poster
+              ? `
+                <img
+                  class="tmdb-poster"
+                  src="${escapeHtml(
+                    movie.poster
+                  )}"
+                  alt=""
+                >
+              `
+              : `
+                <div class="tmdb-poster-placeholder">
+                  🎬
+                </div>
+              `;
+
+          return `
+            <button
+              class="tmdb-result"
+              type="button"
+              onclick="selectTmdbMovie(${index})"
+            >
+              ${poster}
+
+              <span class="tmdb-result-text">
+                <strong>
+                  ${escapeHtml(
+                    movie.title ||
+                    movie.originalTitle
+                  )}
+                </strong>
+
+                <span>
+                  ${escapeHtml(
+                    movie.year ||
+                    "rok nieznany"
+                  )}
+                </span>
+
+                ${
+                  movie.originalTitle &&
+                  movie.originalTitle !==
+                    movie.title
+                    ? `
+                      <small>
+                        ${escapeHtml(
+                          movie.originalTitle
+                        )}
+                      </small>
+                    `
+                    : ""
+                }
+              </span>
+            </button>
+          `;
+        }
+      )
+      .join("");
+}
+
+async function selectTmdbMovie(index) {
+  const selected =
+    tmdbResultsCache[index];
+
+  if (!selected) {
+    return;
+  }
+
+  $("tmdbStatus").innerHTML = `
+    <div class="movie">
+      Pobieram szczegóły filmu...
+    </div>
+  `;
+
+  try {
+    const response =
+      await apiRequest(
+        "tmdbMovie",
+        {
+          id: selected.tmdbId
+        }
+      );
+
+    selectedTmdbMovie =
+      response.movie || selected;
+
+    applyTmdbMovie(
+      selectedTmdbMovie
+    );
+  } catch (error) {
+    $("tmdbStatus").innerHTML = `
+      <div class="movie owned">
+        ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+function applyTmdbMovie(movie) {
+  $("title").value =
+    movie.title ||
+    movie.originalTitle ||
+    "";
+
+  $("year").value =
+    movie.year || "";
+
+  $("tmdbResults").innerHTML = "";
+
+  $("tmdbStatus").innerHTML = `
+    <div class="movie missing">
+      ✅ Wybrano film z TMDb
+    </div>
+  `;
+
+  const selectedPanel =
+    $("selectedMoviePanel");
+
+  selectedPanel.classList.remove(
+    "hidden"
+  );
+
+  $("selectedMovieTitle").textContent =
+    movie.title || "";
+
+  const details = [];
+
+  if (movie.year) {
+    details.push(movie.year);
+  }
+
+  if (movie.director) {
+    details.push(
+      "reż. " + movie.director
+    );
+  }
+
+  if (
+    Array.isArray(movie.genres) &&
+    movie.genres.length
+  ) {
+    details.push(
+      movie.genres.join(", ")
+    );
+  }
+
+  $("selectedMovieDetails").textContent =
+    details.join(" · ");
+
+  $("selectedMovieDescription").textContent =
+    movie.description || "";
+
+  const poster =
+    $("selectedPoster");
+
+  if (movie.poster) {
+    poster.src = movie.poster;
+    poster.classList.remove("hidden");
+  } else {
+    poster.removeAttribute("src");
+    poster.classList.add("hidden");
+  }
+}
+
+function resetTmdbSelection() {
+  tmdbResultsCache = [];
+  selectedTmdbMovie = null;
+
+  $("tmdbStatus").innerHTML = "";
+  $("tmdbResults").innerHTML = "";
+
+  $("selectedMoviePanel").classList.add(
+    "hidden"
+  );
+
+  $("selectedPoster").removeAttribute(
+    "src"
+  );
+
+  $("selectedMovieTitle").textContent =
+    "";
+
+  $("selectedMovieDetails").textContent =
+    "";
+
+  $("selectedMovieDescription").textContent =
+    "";
+}
+
+async function addMovie() {
+ const previous = editingMovieSnapshot || {};
+ const selected = selectedTmdbMovie || {};
+ const movie = {
+  barcode: normalizeBarcode($("barcode").value),
+  title: $("title").value.trim(),
+  format: $("format").value,
+  year: $("year").value.trim(),
+  shelf: $("shelf").value.trim(),
+  notes: $("notes").value.trim(),
+  tmdbId: selected.tmdbId || previous.tmdbId || "",
+  poster: selected.poster || previous.poster || "",
+  originalTitle: selected.originalTitle || previous.originalTitle || "",
+  description: selected.description || previous.description || "",
+  genres: Array.isArray(selected.genres) ? selected.genres.join(" | ") : (selected.genres || previous.genres || ""),
+  runtime: selected.runtime || previous.runtime || "",
+  director: selected.director || previous.director || "",
+  cast: Array.isArray(selected.cast) ? selected.cast.join(" | ") : (selected.cast || previous.cast || ""),
+  voteAverage: selected.voteAverage || previous.voteAverage || "",
+  backdrop: selected.backdrop || previous.backdrop || "",
+  trailer: selected.trailer || previous.trailer || ""
+};
+
+  if (
+    !movie.barcode ||
+    !movie.title
+  ) {
+    alert(
+      "Podaj kod kreskowy i tytuł."
+    );
+
+    return;
+  }
+
+  const button =
+    $("saveButton");
+
+  button.disabled = true;
+
+  button.textContent = editingOriginalBarcode ? "Zapisywanie zmian..." : "Zapisywanie...";
+
+  try {
+    const result =
+      await apiRequest(
+        editingOriginalBarcode ? "update" : "add",
+        editingOriginalBarcode ? { originalBarcode: editingOriginalBarcode, ...movie } : movie
+      );
+
     if (result.duplicate) {
-      alert(result.message || "Ten kod jest już w kolekcji.");
+      alert(
+        "Ten film jest już w kolekcji."
+      );
+
       return;
     }
 
-    resetForm();
+    [
+      "barcode",
+      "title",
+      "year",
+      "shelf",
+      "notes"
+    ].forEach(
+      function (id) {
+        $(id).value = "";
+      }
+    );
+
+    resetTmdbSelection();
+
+    collectionCache = [];
+
     await updateStats();
-    showView("collectionView");
-    await loadCollection();
-    alert(editing ? "Zmiany zostały zapisane." : "Film został dodany.");
+    await loadHomeDashboard(true);
+
+    alert(editingOriginalBarcode ? "Zmiany zostały zapisane." : "Film został zapisany w Arkuszu Google.");
+    resetEditingState();
+
+    showOnly("resultPanel");
+
+    $("resultPanel").className =
+      "panel missing";
+
+    $("resultPanel").innerHTML = `
+      <div class="result-title">
+        ✅ FILM ZAPISANY
+      </div>
+
+      <button
+        class="button collection"
+        onclick="openCollection()"
+      >
+        📚 Zobacz kolekcję
+      </button>
+
+      <button
+        class="button scan"
+        onclick="startScanner()"
+      >
+        Skanuj następny
+      </button>
+    `;
   } catch (error) {
-    alert(`Błąd: ${error.message}`);
+    alert(
+      "Błąd: " +
+      error.message
+    );
   } finally {
-    $("saveMovieButton").disabled = false;
-    $("saveMovieButton").textContent = state.editingOriginalBarcode ? "Zapisz zmiany" : "Zapisz film";
+    button.disabled = false;
+
+    button.textContent = editingOriginalBarcode ? "Zapisz zmiany" : "Zapisz film";
   }
 }
 
 async function runSearch() {
-  const query = $("searchInput").value.trim();
-  if (!query) return;
+  const query =
+    $("searchQuery")
+      .value
+      .trim();
 
-  $("searchResults").innerHTML = `<div class="list-item">Szukam...</div>`;
+  if (!query) {
+    return;
+  }
+
+  $("searchResults").innerHTML = `
+    <div class="movie">
+      Szukanie...
+    </div>
+  `;
 
   try {
-    const response = await apiRequest("search", { query });
-    const movies = Array.isArray(response.movies) ? response.movies : [];
+    const response =
+      await apiRequest(
+        "search",
+        {
+          query: query
+        }
+      );
 
-    $("searchResults").innerHTML = movies.length
-      ? movies.map(movie => `
-          <div class="list-item">
-            <strong>${escapeHtml(movie.title || "Bez tytułu")}</strong><br>
-            <span class="muted">
-              ${escapeHtml(movie.format || "")} ·
-              ${escapeHtml(movie.year || "")} ·
-              ${escapeHtml(movie.barcode || "")}
-            </span>
-          </div>`).join("")
-      : `<div class="list-item">Nic nie znaleziono.</div>`;
+    const found =
+      response.movies || [];
+
+    $("searchResults").innerHTML =
+      found.length
+        ? found
+            .map(movieCard)
+            .join("")
+        : `
+          <div class="movie">
+            Nic nie znaleziono.
+          </div>
+        `;
   } catch (error) {
-    $("searchResults").innerHTML = `<div class="list-item">${escapeHtml(error.message)}</div>`;
+    $("searchResults").innerHTML = `
+      <div class="movie owned">
+        ${escapeHtml(error.message)}
+      </div>
+    `;
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const setBootMessage = message => {
-    const description = $("dailyDescription");
-    if (description) description.textContent = message;
-  };
+function movieCard(movie) {
+  return `
+    <div class="movie">
+      <strong>
+        ${escapeHtml(movie.title)}
+      </strong>
 
-  // Nawigacja jest uruchamiana jako pierwsza. Nawet błąd innej funkcji
-  // nie może już zablokować przycisków Home, Kolekcja i Dodaj.
+      <br>
+
+      ${escapeHtml(
+        movie.format || ""
+      )}
+
+      ·
+
+      ${escapeHtml(
+        movie.year ||
+        "rok nieznany"
+      )}
+
+      <br>
+
+      Półka:
+      ${escapeHtml(
+        movie.shelf || "brak"
+      )}
+
+      <br>
+
+      Kod:
+      ${escapeHtml(movie.barcode)}
+    </div>
+  `;
+}
+
+async function updateStats() {
   try {
-    const activateView = async target => {
-      if (target === "formView") resetForm();
-      showView(target);
+    const response =
+      await apiRequest("stats");
 
-      document.querySelectorAll("[data-view-target]").forEach(button => {
-        button.classList.toggle("active", button.dataset.viewTarget === target);
-      });
+    const stats =
+      response.stats || {};
 
-      if (target === "collectionView") {
-        try {
-          if (!state.movies.length) await loadCollection();
-          else renderCollection();
-        } catch (error) {
-          console.error("Błąd kolekcji:", error);
-          const count = $("collectionCount");
-          const grid = $("collectionGrid");
-          if (count) count.textContent = "Nie udało się pobrać kolekcji";
-          if (grid) grid.innerHTML =
-            `<div class="collection-empty"><span>⚠️</span><h3>Błąd połączenia</h3><p>${escapeHtml(error.message)}</p></div>`;
-        }
-      }
-    };
+    $("dvd").textContent =
+      stats.dvd || 0;
 
-    const brandButton = $("brandHomeButton");
-    if (brandButton) brandButton.onclick = () => activateView("homeView");
+    $("bluray").textContent =
+      stats.bluray || 0;
 
-    document.querySelectorAll("[data-view-target]").forEach(button => {
-      button.onclick = () => activateView(button.dataset.viewTarget);
-    });
+    $("uhd").textContent =
+      stats.uhd || 0;
 
-    document.querySelectorAll(".back-home").forEach(button => {
-      button.onclick = () => activateView("homeView");
-    });
+    $("total").textContent =
+      stats.total || 0;
+
+    setText("homeDvd", stats.dvd || 0);
+    setText("homeBluray", stats.bluray || 0);
+    setText("homeUhd", stats.uhd || 0);
+    setText("homeTotal", stats.total || 0);
   } catch (error) {
-    console.error("Błąd nawigacji:", error);
+    console.error(
+      "Nie udało się pobrać statystyk:",
+      error
+    );
   }
+}
 
-  try {
-    setupDialogScrollLock();
-  } catch (error) {
-    console.error("Błąd dialogu:", error);
-  }
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-  try {
-    setupHome();
-  } catch (error) {
-    console.error("Błąd ekranu Home:", error);
-    setBootMessage(`Błąd ekranu Home: ${error.message}`);
-  }
 
-  const refreshButton = $("refreshButton");
-  if (refreshButton) {
-    refreshButton.onclick = async () => {
-      refreshButton.disabled = true;
-      try {
-        await updateStats();
-        await loadCollection();
-        renderHome();
-      } catch (error) {
-        alert(`Nie udało się odświeżyć kolekcji: ${error.message}`);
-      } finally {
-        refreshButton.disabled = false;
-      }
-    };
-  }
-
-  const collectionFilter = $("collectionFilter");
-  if (collectionFilter) collectionFilter.oninput = renderCollection;
-
-  const collectionSort = $("collectionSort");
-  if (collectionSort) collectionSort.onchange = loadCollection;
-
-  document.querySelectorAll("[data-format-filter]").forEach(button => {
-    button.addEventListener("click", () => {
-      setCollectionFormat(button.dataset.formatFilter);
+document.addEventListener("DOMContentLoaded", function () {
+  const closeButton = $("closeDetailsDialog");
+  const dialog = $("detailsDialog");
+  if (closeButton) closeButton.addEventListener("click", closeDetailsDialog);
+  if (dialog) {
+    dialog.addEventListener("click", function (event) {
+      if (event.target === dialog) closeDetailsDialog();
     });
-  });
-
-  const tmdbSearchButton = $("tmdbSearchButton");
-  if (tmdbSearchButton) tmdbSearchButton.onclick = searchTmdb;
-
-  const movieForm = $("movieForm");
-  if (movieForm) movieForm.onsubmit = saveMovie;
-
-  const cancelFormButton = $("cancelFormButton");
-  if (cancelFormButton) {
-    cancelFormButton.onclick = () => {
-      resetForm();
-      showView("homeView");
-    };
-  }
-
-  const closeScannerButton = $("closeScannerButton");
-  if (closeScannerButton) {
-    closeScannerButton.onclick = () => {
-      stopScanner();
-      showView("homeView");
-    };
-  }
-
-  const runSearchButton = $("runSearchButton");
-  if (runSearchButton) runSearchButton.onclick = runSearch;
-
-  const searchInput = $("searchInput");
-  if (searchInput) {
-    searchInput.onkeydown = event => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        runSearch();
-      }
-    };
-  }
-
-  const closeDialogButton = $("closeDialogButton");
-  if (closeDialogButton) {
-    closeDialogButton.onclick = () => $("detailsDialog")?.close();
-  }
-
-  const detailsDialog = $("detailsDialog");
-  if (detailsDialog) {
-    detailsDialog.addEventListener("click", event => {
-      if (event.target === detailsDialog) detailsDialog.close();
+    dialog.addEventListener("close", function () {
+      document.body.style.overflow = "";
     });
-  }
-
-  document.addEventListener("movievault:add-barcode", event => {
-    resetForm(event.detail);
-    showView("formView");
-  });
-
-  document.addEventListener("movievault:stats", updateStats);
-
-  setBootMessage("Łączę się z Twoją kolekcją…");
-
-  try {
-    await updateStats();
-    await loadCollection();
-    renderHome();
-  } catch (error) {
-    console.error("Nie udało się uruchomić MovieVault:", error);
-    setBootMessage(`Nie udało się pobrać kolekcji: ${error.message}`);
   }
 });
-

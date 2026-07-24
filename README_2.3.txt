@@ -1,34 +1,35 @@
-MOVIEVAULT 2.3 — CINEMATIC EDITION
+MOVIEVAULT 2.2: ULTIMATE METADATA
 
-Ta paczka poprawia wygląd karty filmu i przewijanie na telefonach.
-Backend Google Apps Script oraz Arkusz Google pozostają bez zmian.
+WAŻNE: wdrożenie ma 2 części.
 
-PODMIEŃ NA GITHUBIE:
+CZĘŚĆ 1 — GOOGLE APPS SCRIPT
+1. Otwórz Arkusz Google → Rozszerzenia → Apps Script.
+2. Podmień zawartość plików:
+   - Code.gs
+   - DATABASE.gs
+   - MOVIES.gs
+   - TMDB.gs
+   plikami z folderu apps-script.
+3. Plik METADATA.gs pozostaw bez zmian.
+4. Uruchom ręcznie funkcję setup().
+   Nie usuwa ona filmów. Rozszerza pierwszy wiersz arkusza o nowe kolumny.
+5. Wybierz Wdróż → Zarządzaj wdrożeniami → Edytuj → Nowa wersja → Wdróż.
+6. Adres aplikacji internetowej powinien pozostać ten sam.
+
+CZĘŚĆ 2 — GITHUB PAGES
+Podmień pliki:
 - index.html
-- styles.css
-- collection.js
 - app.js
+- collection.js
+- styles.css
 
-Pozostałe pliki zostaw bez zmian.
+Pozostałe pliki możesz zostawić bez zmian.
 
-Po podmianie:
-1. Poczekaj około 1–2 minut, aż GitHub Pages opublikuje zmianę.
-2. Na laptopie wykonaj Ctrl+F5.
-3. Na iPhonie zamknij kartę strony i otwórz ją ponownie.
-   W razie potrzeby wyczyść dane witryny albo sprawdź stronę w karcie prywatnej.
+Po wdrożeniu:
+- nowe filmy wybrane z TMDb zapiszą opis, gatunki, reżysera, obsadę,
+  czas trwania, ocenę, backdrop i zwiastun;
+- stare filmy pozostaną bezpieczne, ale nowe pola będą puste;
+- aby uzupełnić stary film, wejdź w Edytuj film, wybierz go ponownie z TMDb
+  i zapisz zmiany.
 
-CO ZMIENIONO:
-- naprawione przewijanie szczegółów filmu na iPhone i Androidzie,
-- strona pod dialogiem jest blokowana i nie przewija się,
-- po zamknięciu filmu wracasz do tego samego miejsca kolekcji,
-- niemal pełnoekranowa karta na laptopie,
-- pełnoekranowy układ na telefonie,
-- większy i jaśniejszy backdrop,
-- plakat nachodzący na strefę grafiki,
-- duży tytuł i lepszy układ informacji,
-- płynne animacje tła, plakatu i treści,
-- subtelny kolor akcentu pobierany automatycznie z plakatu,
-- obsługa bezpiecznych obszarów iPhone,
-- obsługa ustawienia „Ogranicz ruch”.
-
-Nie uruchamiaj ponownie setup() i nie wdrażaj Apps Script.
+Na końcu wykonaj Ctrl+F5 lub otwórz stronę w trybie incognito.
