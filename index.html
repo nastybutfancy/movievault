@@ -2,70 +2,223 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
   <meta name="theme-color" content="#2563eb">
+
   <title>MovieVault</title>
+
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
+
   <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
 </head>
+
 <body>
   <header>🎬 MovieVault</header>
 
   <main>
-    <button id="scanButton" class="button scan">📷 Skanuj kod</button>
-    <button id="closeScannerButton" class="button secondary hidden">Zamknij skaner</button>
+    <button
+      id="scanButton"
+      class="button scan"
+    >
+      📷 Skanuj kod
+    </button>
 
-    <section id="scannerPanel" class="panel hidden">
-      <video id="preview" playsinline muted></video>
-      <p class="hint">Umieść kod kreskowy pośrodku obrazu.</p>
+    <button
+      id="closeScannerButton"
+      class="button secondary hidden"
+    >
+      Zamknij skaner
+    </button>
+
+    <section
+      id="scannerPanel"
+      class="panel hidden"
+    >
+      <video
+        id="preview"
+        playsinline
+        muted
+      ></video>
+
+      <p class="hint">
+        Umieść kod kreskowy pośrodku obrazu.
+      </p>
     </section>
 
-    <section id="resultPanel" class="panel hidden"></section>
+    <section
+      id="resultPanel"
+      class="panel hidden"
+    ></section>
 
-    <button id="searchButton" class="button search">🔍 Szukaj filmu</button>
-    <button id="addButton" class="button add">➕ Dodaj film</button>
+    <button
+      id="searchButton"
+      class="button search"
+    >
+      🔍 Szukaj w kolekcji
+    </button>
 
-    <section id="searchPanel" class="panel hidden">
-      <h2>Szukaj</h2>
-      <input id="searchQuery" placeholder="Tytuł albo kod">
-      <button id="runSearchButton" class="button search">Szukaj</button>
+    <button
+      id="addButton"
+      class="button add"
+    >
+      ➕ Dodaj film
+    </button>
+
+    <section
+      id="searchPanel"
+      class="panel hidden"
+    >
+      <h2>Szukaj w kolekcji</h2>
+
+      <input
+        id="searchQuery"
+        placeholder="Tytuł albo kod kreskowy"
+      >
+
+      <button
+        id="runSearchButton"
+        class="button search"
+      >
+        Szukaj
+      </button>
+
       <div id="searchResults"></div>
     </section>
 
-    <section id="addPanel" class="panel hidden">
+    <section
+      id="addPanel"
+      class="panel hidden"
+    >
       <h2>Dodaj film</h2>
-      <label>Kod kreskowy</label>
-      <input id="barcode" inputmode="numeric">
 
-      <label>Tytuł</label>
-      <input id="title">
+      <label for="barcode">
+        Kod kreskowy
+      </label>
 
-      <label>Format</label>
+      <input
+        id="barcode"
+        inputmode="numeric"
+      >
+
+      <label for="title">
+        Tytuł
+      </label>
+
+      <input
+        id="title"
+        placeholder="Na przykład: Blade Runner"
+      >
+
+      <label for="year">
+        Rok, opcjonalnie
+      </label>
+
+      <input
+        id="year"
+        inputmode="numeric"
+        placeholder="Na przykład: 1982"
+      >
+
+      <button
+        id="tmdbSearchButton"
+        class="button search"
+        type="button"
+      >
+        🎞 Znajdź dane filmu
+      </button>
+
+      <div id="tmdbStatus"></div>
+      <div id="tmdbResults"></div>
+
+      <section
+        id="selectedMoviePanel"
+        class="selected-movie hidden"
+      >
+        <img
+          id="selectedPoster"
+          class="selected-poster"
+          alt="Plakat filmu"
+        >
+
+        <div>
+          <strong id="selectedMovieTitle"></strong>
+
+          <p id="selectedMovieDetails"></p>
+          <p id="selectedMovieDescription"></p>
+        </div>
+      </section>
+
+      <label for="format">
+        Format
+      </label>
+
       <select id="format">
         <option>DVD</option>
         <option>Blu-ray</option>
         <option>4K UHD</option>
       </select>
 
-      <label>Rok</label>
-      <input id="year" inputmode="numeric">
+      <label for="shelf">
+        Półka
+      </label>
 
-      <label>Półka</label>
-      <input id="shelf">
+      <input
+        id="shelf"
+        placeholder="Na przykład: A3"
+      >
 
-      <button id="saveButton" class="button add">Zapisz film</button>
+      <label for="notes">
+        Uwagi
+      </label>
+
+      <textarea
+        id="notes"
+        rows="4"
+        placeholder="Opcjonalne informacje o wydaniu"
+      ></textarea>
+
+      <button
+        id="saveButton"
+        class="button add"
+      >
+        Zapisz film
+      </button>
     </section>
 
     <section class="panel">
-      <h2>Kolekcja lokalna</h2>
+      <h2>Kolekcja</h2>
+
       <div class="stats">
-        <div>DVD<strong id="dvd">0</strong></div>
-        <div>Blu-ray<strong id="bluray">0</strong></div>
-        <div>4K UHD<strong id="uhd">0</strong></div>
-        <div>Razem<strong id="total">0</strong></div>
+        <div>
+          DVD
+          <strong id="dvd">0</strong>
+        </div>
+
+        <div>
+          Blu-ray
+          <strong id="bluray">0</strong>
+        </div>
+
+        <div>
+          4K UHD
+          <strong id="uhd">0</strong>
+        </div>
+
+        <div>
+          Razem
+          <strong id="total">0</strong>
+        </div>
       </div>
-      <p class="hint">W tej wersji dane są zapisane w telefonie. Synchronizację z Arkuszem Google dodamy w kolejnym kroku.</p>
+
+      <p class="hint">
+        Dane kolekcji są synchronizowane z Arkuszem Google.
+      </p>
     </section>
   </main>
 
