@@ -177,26 +177,38 @@ async function runSearch() {
 document.addEventListener("DOMContentLoaded", async () => {
   setupDialogScrollLock();
   setupHome();
-  $("openCollectionButton").onclick = async () => {
-    showView("collectionView");
-    await loadCollection();
-  };
+  const openCollectionButton = $("openCollectionButton");
+  if (openCollectionButton) {
+    openCollectionButton.onclick = async () => {
+      showView("collectionView");
+      await loadCollection();
+    };
+  }
 
-  $("openAddButton").onclick = () => {
-    resetForm();
-    showView("formView");
-  };
+  const openAddButton = $("openAddButton");
+  if (openAddButton) {
+    openAddButton.onclick = () => {
+      resetForm();
+      showView("formView");
+    };
+  }
 
-  $("openScannerButton").onclick = startScanner;
-  $("openSearchButton").onclick = () => showView("searchView");
+  const openScannerButton = $("openScannerButton");
+  if (openScannerButton) openScannerButton.onclick = startScanner;
+
+  const openSearchButton = $("openSearchButton");
+  if (openSearchButton) openSearchButton.onclick = () => showView("searchView");
 
   $("refreshButton").onclick = async () => {
     await updateStats();
 
     if (!$("collectionView").classList.contains("hidden")) {
       await loadCollection();
-      renderHome();
+    } else {
+      await loadCollection();
     }
+
+    renderHome();
   };
 
   $("collectionFilter").oninput = renderCollection;
@@ -260,7 +272,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.addEventListener("movievault:stats", updateStats);
 
   await updateStats();
-  try { await loadCollection(); renderHome(); } catch (error) { console.error("Nie udało się załadować Home:", error); }
+
+  try {
+    await loadCollection();
+    renderHome();
+  } catch (error) {
+    console.error("Nie udało się załadować Home:", error);
+    $("dailyDescription").textContent =
+      "Nie udało się połączyć z kolekcją. Kliknij odśwież lub sprawdź wdrożenie Apps Script.";
+  }
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(error => {
