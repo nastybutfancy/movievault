@@ -57,6 +57,13 @@
     ></section>
 
     <button
+      id="collectionButton"
+      class="button collection"
+    >
+      📚 Moja kolekcja
+    </button>
+
+    <button
       id="searchButton"
       class="button search"
     >
@@ -69,6 +76,61 @@
     >
       ➕ Dodaj film
     </button>
+
+    <section
+      id="collectionPanel"
+      class="panel hidden"
+    >
+      <div class="collection-header">
+        <div>
+          <h2>Moja kolekcja</h2>
+
+          <p
+            id="collectionCount"
+            class="hint"
+          >
+            Ładowanie...
+          </p>
+        </div>
+
+        <button
+          id="refreshCollectionButton"
+          class="small-button"
+          type="button"
+        >
+          ↻ Odśwież
+        </button>
+      </div>
+
+      <input
+        id="collectionFilter"
+        placeholder="Filtruj po tytule, roku, formacie lub kodzie"
+      >
+
+      <label for="collectionSort">
+        Sortowanie
+      </label>
+
+      <select id="collectionSort">
+        <option value="title">
+          Tytuł A–Z
+        </option>
+
+        <option value="newest">
+          Ostatnio dodane
+        </option>
+
+        <option value="oldest">
+          Najdawniej dodane
+        </option>
+
+        <option value="year">
+          Rok filmu
+        </option>
+      </select>
+
+      <div id="collectionResults"></div>
+    </section>
 
     <section
       id="searchPanel"
