@@ -230,6 +230,7 @@ export function openMovie(barcode) {
       </div>
     </article>`;
 
+  applyMovieAccent(movie.poster || movie.backdrop || "");
   $("detailsDialog").showModal();
 
   $("dialogEditButton").onclick = () => {
@@ -262,6 +263,79 @@ function formatRuntime(value) {
 function formatRating(value) {
   const rating = Number.parseFloat(value);
   return Number.isFinite(rating) ? rating.toFixed(1) : String(value || "");
+}
+
+
+function applyMovieAccent(imageUrl) {
+  const dialog = $("detailsDialog");
+  const fallback = { r: 99, g: 102, b: 241 };
+
+  const setAccent = ({ r, g, b }) => {
+    dialog.style.setProperty("--movie-accent-rgb", `${r}, ${g}, ${b}`);
+    dialog.style.setProperty("--movie-accent", `rgb(${r}, ${g}, ${b})`);
+  };
+
+  if (!imageUrl) {
+    setAccent(fallback);
+    return;
+  }
+
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.decoding = "async";
+
+  image.onload = () => {
+    try {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+
+      canvas.width = 32;
+      canvas.height = 32;
+      context.drawImage(image, 0, 0, 32, 32);
+
+      const pixels = context.getImageData(0, 0, 32, 32).data;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let weightTotal = 0;
+
+      for (let index = 0; index < pixels.length; index += 16) {
+        const r = pixels[index];
+        const g = pixels[index + 1];
+        const b = pixels[index + 2];
+        const alpha = pixels[index + 3] / 255;
+
+        const brightness = (r + g + b) / 3;
+        const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+
+        if (alpha < .6 || brightness < 24 || brightness > 232) continue;
+
+        const weight = 1 + saturation / 90;
+        red += r * weight;
+        green += g * weight;
+        blue += b * weight;
+        weightTotal += weight;
+      }
+
+      if (!weightTotal) {
+        setAccent(fallback);
+        return;
+      }
+
+      const normalize = value => Math.max(54, Math.min(214, Math.round(value / weightTotal)));
+
+      setAccent({
+        r: normalize(red),
+        g: normalize(green),
+        b: normalize(blue)
+      });
+    } catch (error) {
+      setAccent(fallback);
+    }
+  };
+
+  image.onerror = () => setAccent(fallback);
+  image.src = imageUrl;
 }
 
 export function startEdit(barcode) {

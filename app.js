@@ -10,6 +10,55 @@ import {
 import { searchTmdb } from "./tmdb.js";
 import { startScanner, stopScanner } from "./scanner.js";
 
+
+let dialogScrollPosition = 0;
+
+function lockBackgroundScroll() {
+  if (document.body.classList.contains("dialog-open")) return;
+
+  dialogScrollPosition = window.scrollY || window.pageYOffset || 0;
+
+  document.documentElement.classList.add("dialog-open");
+  document.body.classList.add("dialog-open");
+  document.body.style.top = `-${dialogScrollPosition}px`;
+}
+
+function unlockBackgroundScroll() {
+  if (!document.body.classList.contains("dialog-open")) return;
+
+  document.documentElement.classList.remove("dialog-open");
+  document.body.classList.remove("dialog-open");
+  document.body.style.top = "";
+
+  window.scrollTo(0, dialogScrollPosition);
+}
+
+function setupDialogScrollLock() {
+  const dialog = $("detailsDialog");
+
+  const syncDialogState = () => {
+    if (dialog.open) {
+      lockBackgroundScroll();
+
+      requestAnimationFrame(() => {
+        const scroller = dialog.querySelector(".cinematic-details");
+        if (scroller) scroller.scrollTop = 0;
+      });
+    } else {
+      unlockBackgroundScroll();
+    }
+  };
+
+  const observer = new MutationObserver(syncDialogState);
+  observer.observe(dialog, {
+    attributes: true,
+    attributeFilter: ["open"]
+  });
+
+  dialog.addEventListener("close", unlockBackgroundScroll);
+  dialog.addEventListener("cancel", unlockBackgroundScroll);
+}
+
 function resetForm(barcode = "") {
   clearEditState();
   $("movieForm").reset();
@@ -125,6 +174,7 @@ async function runSearch() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupDialogScrollLock();
   $("openCollectionButton").onclick = async () => {
     showView("collectionView");
     await loadCollection();
