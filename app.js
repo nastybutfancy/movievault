@@ -83,6 +83,105 @@ function getAddedTimestamp(movie) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+
+function backupDateStamp(date) {
+  const pad = function (value) {
+    return String(value).padStart(2, "0");
+  };
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate())
+  ].join("-") + "_" + [
+    pad(date.getHours()),
+    pad(date.getMinutes())
+  ].join("-");
+}
+
+async function createCollectionBackup(button) {
+  const originalHtml = button ? button.innerHTML : "";
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.classList.add("is-loading");
+      button.innerHTML = `
+        <span class="action-icon backup-icon">↻</span>
+        <span class="action-copy">
+          <strong>Tworzę kopię…</strong>
+          <small>Pobieram najnowsze dane kolekcji</small>
+        </span>
+        <span class="chevron">…</span>
+      `;
+    }
+
+    const response = await apiRequest("collection", { sort: "newest" });
+    const movies = Array.isArray(response.movies) ? response.movies : [];
+
+    const createdAt = new Date();
+    const backup = {
+      application: "MovieVault",
+      backupVersion: 1,
+      appVersion: "3.2.0",
+      createdAt: createdAt.toISOString(),
+      movieCount: movies.length,
+      movies: movies
+    };
+
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], {
+      type: "application/json;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "MovieVault_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.style.display = "none";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000);
+
+    collectionCache = movies;
+    renderHomeDashboard();
+
+    if (button) {
+      button.classList.add("backup-success");
+      button.innerHTML = `
+        <span class="action-icon backup-icon">✓</span>
+        <span class="action-copy">
+          <strong>Kopia pobrana</strong>
+          <small>${movies.length} filmów zapisano na komputerze</small>
+        </span>
+        <span class="chevron">✓</span>
+      `;
+
+      setTimeout(function () {
+        button.classList.remove("backup-success");
+        button.innerHTML = originalHtml;
+      }, 2600);
+    }
+  } catch (error) {
+    console.error("Backup:", error);
+    alert("Nie udało się utworzyć kopii zapasowej: " + error.message);
+
+    if (button) {
+      button.innerHTML = originalHtml;
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("is-loading");
+    }
+  }
+}
+
 async function loadHomeDashboard(force) {
   const recentNode = safeElement("recentMovies");
   if (!recentNode) return;
@@ -275,6 +374,7 @@ function setupCollectorExperience() {
       if (action === "add") openAddFromHome();
       if (action === "scan") openScannerFromHome();
       if (action === "random") drawRandomMovie();
+      if (action === "backup") createCollectionBackup(button);
     });
   });
   document.querySelectorAll("[data-format]").forEach(function (button) {

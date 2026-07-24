@@ -484,3 +484,43 @@ textarea { resize:vertical; }
     flex-direction: column;
   }
 }
+
+
+/* MovieVault 3.2.0 — one-click collection backup */
+@media (min-width: 1101px) {
+  .quick-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.backup-action-card {
+  border-color: rgba(125, 211, 252, .2);
+}
+
+.backup-action-card .backup-icon {
+  color: #b9e8ff;
+}
+
+.backup-action-card.is-loading {
+  cursor: progress;
+  opacity: .82;
+}
+
+.backup-action-card.is-loading .backup-icon {
+  animation: movievault-backup-spin 1s linear infinite;
+}
+
+.backup-action-card.backup-success {
+  border-color: rgba(74, 222, 128, .52);
+  background: linear-gradient(145deg, rgba(74, 222, 128, .12), rgba(255, 255, 255, .035));
+}
+
+@keyframes movievault-backup-spin {
+  to { transform: rotate(360deg); }
+}
