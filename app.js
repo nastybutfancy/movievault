@@ -1034,26 +1034,36 @@ function resetTmdbSelection() {
 }
 
 async function addMovie() {
-  const movie = {
-    barcode: normalizeBarcode(
-      $("barcode").value
-    ),
+ const movie = {
+  barcode: normalizeBarcode(
+    $("barcode").value
+  ),
 
-    title:
-      $("title").value.trim(),
+  title:
+    $("title").value.trim(),
 
-    format:
-      $("format").value,
+  format:
+    $("format").value,
 
-    year:
-      $("year").value.trim(),
+  year:
+    $("year").value.trim(),
 
-    shelf:
-      $("shelf").value.trim(),
+  shelf:
+    $("shelf").value.trim(),
 
-    notes:
-      $("notes").value.trim()
-  };
+  notes:
+    $("notes").value.trim(),
+
+  tmdbId:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.tmdbId || ""
+      : "",
+
+  poster:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.poster || ""
+      : ""
+};
 
   if (
     !movie.barcode ||
