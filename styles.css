@@ -264,3 +264,19 @@
   margin-bottom: 0;
   color: #64748b;
 }
+.collection-cover {
+  width: 58px;
+  min-width: 58px;
+  height: 86px;
+  display: block;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #e2e8f0;
+  box-shadow:
+    0 4px 10px
+    rgba(15, 23, 42, 0.18);
+}
+
+.collection-cover-placeholder {
+  height: 86px;
+}
