@@ -321,6 +321,7 @@ let tmdbResultsCache = [];
 let selectedTmdbMovie = null;
 
 let collectionCache = [];
+let editingBarcode = "";
 
 const $ = id => document.getElementById(id);
 
@@ -664,8 +665,10 @@ function collectionMovieCard(movie) {
     ? `<img class="collection-cover" src="${escapeHtml(movie.poster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
     : `<div class="collection-cover-placeholder">🎬</div>`;
 
+  const barcode = normalizeBarcode(movie.barcode);
+
   return `
-    <article class="collection-card" tabindex="0">
+    <button class="collection-card" type="button" onclick="openCollectionMovie('${escapeHtml(barcode)}')">
       <div class="collection-cover-frame">${cover}</div>
       <div class="collection-main-info">
         <h3>${escapeHtml(movie.title || "Bez tytułu")}</h3>
@@ -674,8 +677,171 @@ function collectionMovieCard(movie) {
           <span class="year-badge">${year}</span>
         </div>
       </div>
-    </article>
+    </button>
   `;
+}
+
+
+function openCollectionMovie(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  const movie = collectionCache.find(function (item) {
+    return normalizeBarcode(item.barcode) === normalized;
+  });
+
+  if (!movie) {
+    return;
+  }
+
+  const poster = moviePoster(movie);
+  const genres = Array.isArray(movie.genres)
+    ? movie.genres
+    : String(movie.genres || movie.genre || "")
+        .split(/[,|]/)
+        .map(function (item) { return item.trim(); })
+        .filter(Boolean);
+
+  const cast = Array.isArray(movie.cast)
+    ? movie.cast
+    : String(movie.cast || "")
+        .split(/[,|]/)
+        .map(function (item) { return item.trim(); })
+        .filter(Boolean);
+
+  const facts = [
+    movie.year ? "<span>" + escapeHtml(movie.year) + "</span>" : "",
+    movie.format ? "<span>" + escapeHtml(movie.format) + "</span>" : "",
+    movie.runtime ? "<span>" + escapeHtml(String(movie.runtime)) + " min</span>" : "",
+    movie.shelf ? "<span>Półka: " + escapeHtml(movie.shelf) + "</span>" : ""
+  ].filter(Boolean).join("");
+
+  $("movieDetailsContent").innerHTML = `
+    <div class="movie-details-layout">
+      <div class="movie-details-poster">
+        ${poster
+          ? '<img src="' + escapeHtml(poster) + '" alt="Okładka filmu">'
+          : '<div class="movie-details-placeholder">🎬</div>'}
+      </div>
+
+      <div class="movie-details-copy">
+        <p class="eyebrow">TWOJA KOLEKCJA</p>
+        <h2>${escapeHtml(movie.title || "Bez tytułu")}</h2>
+
+        <div class="movie-details-facts">${facts}</div>
+
+        ${genres.length
+          ? '<div class="movie-details-genres">' +
+              genres.map(function (genre) {
+                return "<span>" + escapeHtml(genre) + "</span>";
+              }).join("") +
+            "</div>"
+          : ""}
+
+        ${movie.description
+          ? '<section><h3>Opis filmu</h3><p>' + escapeHtml(movie.description) + "</p></section>"
+          : ""}
+
+        ${movie.director
+          ? '<section><h3>Reżyseria</h3><p>' + escapeHtml(movie.director) + "</p></section>"
+          : ""}
+
+        ${cast.length
+          ? '<section><h3>Obsada</h3><p>' + cast.map(escapeHtml).join(", ") + "</p></section>"
+          : ""}
+
+        ${movie.notes
+          ? '<section><h3>Notatki</h3><p>' + escapeHtml(movie.notes) + "</p></section>"
+          : ""}
+
+        <div class="movie-details-actions">
+          <button class="primary-button" type="button" onclick="editCollectionMovie('${escapeHtml(normalized)}')">Edytuj</button>
+          <button class="danger-button" type="button" onclick="deleteCollectionMovie('${escapeHtml(normalized)}')">Usuń</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  $("movieDetailsModal").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeMovieDetails() {
+  $("movieDetailsModal").classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function editCollectionMovie(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  const movie = collectionCache.find(function (item) {
+    return normalizeBarcode(item.barcode) === normalized;
+  });
+
+  if (!movie) {
+    return;
+  }
+
+  editingBarcode = normalized;
+  closeMovieDetails();
+  showOnly("addPanel");
+
+  resetTmdbSelection();
+
+  $("barcode").value = normalized;
+  $("title").value = movie.title || "";
+  $("format").value = movie.format || "DVD";
+  $("year").value = movie.year || "";
+  $("shelf").value = movie.shelf || "";
+  $("notes").value = movie.notes || "";
+
+  selectedTmdbMovie = {
+    tmdbId: movie.tmdbId || "",
+    poster: movie.poster || "",
+    title: movie.title || "",
+    originalTitle: movie.originalTitle || "",
+    year: movie.year || "",
+    director: movie.director || "",
+    genres: movie.genres || [],
+    cast: movie.cast || [],
+    description: movie.description || "",
+    backdrop: movie.backdrop || "",
+    runtime: movie.runtime || "",
+    voteAverage: movie.voteAverage || "",
+    trailer: movie.trailer || ""
+  };
+
+  $("saveButton").textContent = "Zapisz zmiany";
+  $("title").focus();
+}
+
+async function deleteCollectionMovie(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  const movie = collectionCache.find(function (item) {
+    return normalizeBarcode(item.barcode) === normalized;
+  });
+
+  if (!movie) {
+    return;
+  }
+
+  const confirmed = confirm(
+    'Usunąć "' + (movie.title || "ten film") + '" z kolekcji?'
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await apiRequest("delete", { barcode: normalized });
+    collectionCache = collectionCache.filter(function (item) {
+      return normalizeBarcode(item.barcode) !== normalized;
+    });
+    closeMovieDetails();
+    renderCollection();
+    renderHomeDashboard();
+    await updateStats();
+  } catch (error) {
+    alert("Nie udało się usunąć filmu: " + error.message);
+  }
 }
 
 function getFormatClass(format) {
@@ -993,9 +1159,11 @@ function renderScanResult(
 }
 
 function prepareAdd(barcode) {
+  editingBarcode = "";
   showOnly("addPanel");
 
   resetTmdbSelection();
+  $("saveButton").textContent = "Zapisz film";
 
   $("barcode").value =
     normalizeBarcode(barcode);
@@ -1285,6 +1453,8 @@ async function addMovie() {
     $("barcode").value
   ),
 
+  originalBarcode: editingBarcode || "",
+
   title:
     $("title").value.trim(),
 
@@ -1308,6 +1478,51 @@ async function addMovie() {
   poster:
     selectedTmdbMovie
       ? selectedTmdbMovie.poster || ""
+      : "",
+
+  originalTitle:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.originalTitle || ""
+      : "",
+
+  description:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.description || ""
+      : "",
+
+  director:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.director || ""
+      : "",
+
+  genres:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.genres || []
+      : [],
+
+  cast:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.cast || []
+      : [],
+
+  backdrop:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.backdrop || ""
+      : "",
+
+  runtime:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.runtime || ""
+      : "",
+
+  voteAverage:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.voteAverage || ""
+      : "",
+
+  trailer:
+    selectedTmdbMovie
+      ? selectedTmdbMovie.trailer || ""
       : ""
 };
 
@@ -1331,13 +1546,15 @@ async function addMovie() {
     "Zapisywanie...";
 
   try {
+    const action = editingBarcode ? "update" : "add";
+
     const result =
       await apiRequest(
-        "add",
+        action,
         movie
       );
 
-    if (result.duplicate) {
+    if (!editingBarcode && result.duplicate) {
       alert(
         "Ten film jest już w kolekcji."
       );
@@ -1358,6 +1575,8 @@ async function addMovie() {
     );
 
     resetTmdbSelection();
+    editingBarcode = "";
+    $("saveButton").textContent = "Zapisz film";
 
     collectionCache = [];
 
@@ -1365,7 +1584,9 @@ async function addMovie() {
     await loadHomeDashboard(true);
 
     alert(
-      "Film został zapisany w Arkuszu Google."
+      action === "update"
+        ? "Zmiany zostały zapisane."
+        : "Film został zapisany w Arkuszu Google."
     );
 
     showOnly("resultPanel");

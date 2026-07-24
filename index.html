@@ -8,9 +8,9 @@
   <title>MovieVault</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="movievault-icon.webp" type="image/webp">
-  <link rel="stylesheet" href="styles.css?v=3.1.7">
+  <link rel="stylesheet" href="styles.css?v=3.1.9">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.1.7" defer></script>
+  <script src="app.js?v=3.1.9" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
@@ -237,6 +237,15 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><small>Więcej</small>
     </button>
   </nav>
+
+
+  <div id="movieDetailsModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Szczegóły filmu">
+    <button class="modal-backdrop" type="button" onclick="closeMovieDetails()" aria-label="Zamknij"></button>
+    <div class="movie-details-card">
+      <button class="modal-close" type="button" onclick="closeMovieDetails()" aria-label="Zamknij">×</button>
+      <div id="movieDetailsContent"></div>
+    </div>
+  </div>
 
   <div id="randomModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="randomTitle">
     <button class="modal-backdrop" type="button" data-close-random aria-label="Zamknij"></button>

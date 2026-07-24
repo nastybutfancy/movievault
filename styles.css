@@ -350,3 +350,137 @@ textarea { resize:vertical; }
   .format-badge,.year-badge { font-size:8px; padding:3px; }
   .brand-logo-image { width:225px; }
 }
+
+
+/* MovieVault 3.1.9 — details, edit and delete */
+.collection-card {
+  appearance: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.movie-details-card {
+  position: relative;
+  z-index: 2;
+  width: min(980px, calc(100% - 32px));
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #111728, #090d17);
+  box-shadow: 0 30px 90px rgba(0,0,0,.65);
+  padding: 28px;
+}
+
+.movie-details-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+
+.movie-details-poster img,
+.movie-details-placeholder {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 18px;
+  background: #080b12;
+}
+
+.movie-details-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 54px;
+}
+
+.movie-details-copy h2 {
+  margin: 6px 0 16px;
+  font-size: clamp(30px, 5vw, 54px);
+  line-height: 1.02;
+}
+
+.movie-details-copy section {
+  margin-top: 22px;
+}
+
+.movie-details-copy section h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: .11em;
+  color: #b47aff;
+}
+
+.movie-details-copy section p {
+  margin: 0;
+  color: #c7cad4;
+  line-height: 1.65;
+}
+
+.movie-details-facts,
+.movie-details-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.movie-details-facts span,
+.movie-details-genres span {
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  color: #d8dbe5;
+  background: rgba(255,255,255,.035);
+}
+
+.movie-details-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.danger-button {
+  border: 1px solid rgba(255,92,120,.45);
+  background: rgba(255,92,120,.1);
+  color: #ff8ca0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.danger-button:hover {
+  background: rgba(255,92,120,.18);
+}
+
+@media (max-width: 720px) {
+  .movie-details-card {
+    width: calc(100% - 18px);
+    max-height: 92vh;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .movie-details-layout {
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .movie-details-copy h2 {
+    font-size: 26px;
+  }
+
+  .movie-details-copy section,
+  .movie-details-actions {
+    grid-column: 1 / -1;
+  }
+
+  .movie-details-actions {
+    flex-direction: column;
+  }
+}
