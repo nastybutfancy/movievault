@@ -7,9 +7,9 @@
   <meta name="description" content="MovieVault — cyfrowe archiwum fizycznej kolekcji filmów.">
   <title>MovieVault</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=3.1.4">
+  <link rel="stylesheet" href="styles.css?v=3.1.5">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.1.4" defer></script>
+  <script src="app.js?v=3.1.5" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
@@ -17,10 +17,9 @@
 
   <header class="topbar">
     <button class="brand brand-with-logo" type="button" data-home aria-label="Przejdź na stronę główną">
-      <img class="brand-icon-image" src="movievault-icon.webp" alt="" aria-hidden="true">
-      <span class="brand-wordmark">
-        <strong>Movie<span>Vault</span></strong>
-        <small>COLLECT <b>•</b> SCAN <b>•</b> ARCHIVE</small>
+      <span class="brand-lockup" aria-hidden="true">
+        <img class="brand-icon-image" src="movievault-icon.webp" alt="">
+        <span class="brand-wording"><strong>Movie<span>Vault</span></strong><small>COLLECT • SCAN • ARCHIVE</small></span>
       </span>
     </button>
 
@@ -241,11 +240,13 @@
     </button>
   </nav>
 
-
-  <dialog id="detailsDialog" class="details-dialog">
-    <button id="closeDetailsDialog" class="details-close" type="button" aria-label="Zamknij">×</button>
-    <div id="dialogContent"></div>
-  </dialog>
+  <div id="movieDetailsModal" class="movie-details-modal hidden" role="dialog" aria-modal="true" aria-labelledby="movieDetailsTitle">
+    <button class="movie-details-backdrop" type="button" data-close-details aria-label="Zamknij"></button>
+    <article class="movie-details-card">
+      <button class="movie-details-close" type="button" data-close-details aria-label="Zamknij">×</button>
+      <div id="movieDetailsContent"></div>
+    </article>
+  </div>
 
   <div id="randomModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="randomTitle">
     <button class="modal-backdrop" type="button" data-close-random aria-label="Zamknij"></button>
