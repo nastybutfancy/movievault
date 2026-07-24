@@ -8,77 +8,90 @@ let scanLock = false;
 let tmdbResultsCache = [];
 let selectedTmdbMovie = null;
 
+let collectionCache = [];
+
 const $ = id => document.getElementById(id);
 
 document.addEventListener(
   "DOMContentLoaded",
   function () {
-    $("scanButton")
-      .addEventListener(
-        "click",
-        startScanner
-      );
+    $("scanButton").addEventListener(
+      "click",
+      startScanner
+    );
 
-    $("closeScannerButton")
-      .addEventListener(
-        "click",
-        stopScanner
-      );
+    $("closeScannerButton").addEventListener(
+      "click",
+      stopScanner
+    );
 
-    $("searchButton")
-      .addEventListener(
-        "click",
-        function () {
-          showOnly("searchPanel");
+    $("collectionButton").addEventListener(
+      "click",
+      openCollection
+    );
+
+    $("refreshCollectionButton").addEventListener(
+      "click",
+      loadCollection
+    );
+
+    $("collectionFilter").addEventListener(
+      "input",
+      renderCollection
+    );
+
+    $("collectionSort").addEventListener(
+      "change",
+      loadCollection
+    );
+
+    $("searchButton").addEventListener(
+      "click",
+      function () {
+        showOnly("searchPanel");
+      }
+    );
+
+    $("addButton").addEventListener(
+      "click",
+      function () {
+        prepareAdd("");
+      }
+    );
+
+    $("runSearchButton").addEventListener(
+      "click",
+      runSearch
+    );
+
+    $("tmdbSearchButton").addEventListener(
+      "click",
+      searchTmdb
+    );
+
+    $("saveButton").addEventListener(
+      "click",
+      addMovie
+    );
+
+    $("searchQuery").addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          runSearch();
         }
-      );
+      }
+    );
 
-    $("addButton")
-      .addEventListener(
-        "click",
-        function () {
-          prepareAdd("");
+    $("title").addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          searchTmdb();
         }
-      );
-
-    $("runSearchButton")
-      .addEventListener(
-        "click",
-        runSearch
-      );
-
-    $("tmdbSearchButton")
-      .addEventListener(
-        "click",
-        searchTmdb
-      );
-
-    $("saveButton")
-      .addEventListener(
-        "click",
-        addMovie
-      );
-
-    $("searchQuery")
-      .addEventListener(
-        "keydown",
-        function (event) {
-          if (event.key === "Enter") {
-            runSearch();
-          }
-        }
-      );
-
-    $("title")
-      .addEventListener(
-        "keydown",
-        function (event) {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            searchTmdb();
-          }
-        }
-      );
+      }
+    );
 
     updateStats();
 
@@ -132,8 +145,9 @@ function apiRequest(
         clearTimeout(timeout);
 
         if (script.parentNode) {
-          script.parentNode
-            .removeChild(script);
+          script.parentNode.removeChild(
+            script
+          );
         }
 
         delete window[callbackName];
@@ -189,6 +203,7 @@ function showOnly(panelId) {
   [
     "scannerPanel",
     "resultPanel",
+    "collectionPanel",
     "searchPanel",
     "addPanel"
   ].forEach(
@@ -198,6 +213,293 @@ function showOnly(panelId) {
         id !== panelId
       );
     }
+  );
+}
+
+async function openCollection() {
+  showOnly("collectionPanel");
+  await loadCollection();
+}
+
+async function loadCollection() {
+  const sort =
+    $("collectionSort").value;
+
+  $("collectionCount").textContent =
+    "Ładowanie kolekcji...";
+
+  $("collectionResults").innerHTML = `
+    <div class="movie">
+      Pobieram filmy z Arkusza Google...
+    </div>
+  `;
+
+  try {
+    const response =
+      await apiRequest(
+        "collection",
+        {
+          sort: sort
+        }
+      );
+
+    collectionCache =
+      Array.isArray(response.movies)
+        ? response.movies
+        : [];
+
+    renderCollection();
+  } catch (error) {
+    $("collectionCount").textContent =
+      "Nie udało się pobrać kolekcji.";
+
+    $("collectionResults").innerHTML = `
+      <div class="movie owned">
+        <strong>Błąd</strong>
+
+        <p>
+          ${escapeHtml(error.message)}
+        </p>
+      </div>
+    `;
+  }
+}
+
+function renderCollection() {
+  const filter =
+    $("collectionFilter")
+      .value
+      .trim()
+      .toLowerCase();
+
+  const visibleMovies =
+    collectionCache.filter(
+      function (movie) {
+        if (!filter) {
+          return true;
+        }
+
+        const searchableText = [
+          movie.title,
+          movie.year,
+          movie.format,
+          movie.shelf,
+          movie.barcode,
+          movie.notes
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(
+          filter
+        );
+      }
+    );
+
+  $("collectionCount").textContent =
+    filter
+      ? (
+          "Znaleziono: " +
+          visibleMovies.length +
+          " z " +
+          collectionCache.length
+        )
+      : (
+          "Liczba filmów: " +
+          collectionCache.length
+        );
+
+  if (!visibleMovies.length) {
+    $("collectionResults").innerHTML = `
+      <div class="empty-collection">
+        <div class="empty-collection-icon">
+          🎞️
+        </div>
+
+        <strong>
+          ${
+            collectionCache.length
+              ? "Brak pasujących filmów"
+              : "Kolekcja jest pusta"
+          }
+        </strong>
+
+        <p>
+          ${
+            collectionCache.length
+              ? "Spróbuj zmienić tekst wyszukiwania."
+              : "Zeskanuj kod albo dodaj pierwszy film."
+          }
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+  $("collectionResults").innerHTML =
+    visibleMovies
+      .map(collectionMovieCard)
+      .join("");
+}
+
+function collectionMovieCard(movie) {
+  const formatClass =
+    getFormatClass(movie.format);
+
+  const year =
+    movie.year
+      ? escapeHtml(movie.year)
+      : "rok nieznany";
+
+  const shelf =
+    movie.shelf
+      ? `
+        <div class="collection-detail">
+          <span>Półka</span>
+          <strong>
+            ${escapeHtml(movie.shelf)}
+          </strong>
+        </div>
+      `
+      : "";
+
+  const notes =
+    movie.notes
+      ? `
+        <p class="collection-notes">
+          ${escapeHtml(movie.notes)}
+        </p>
+      `
+      : "";
+
+  const addedDate =
+    formatAddedDate(
+      movie.addedAt ||
+      movie.dateAdded ||
+      movie.date
+    );
+
+  const added =
+    addedDate
+      ? `
+        <div class="collection-added">
+          Dodano: ${escapeHtml(addedDate)}
+        </div>
+      `
+      : "";
+
+  return `
+    <article class="collection-card">
+      <div class="collection-card-top">
+        <div class="collection-cover-placeholder">
+          🎬
+        </div>
+
+        <div class="collection-main-info">
+          <h3>
+            ${escapeHtml(
+              movie.title ||
+              "Bez tytułu"
+            )}
+          </h3>
+
+          <div class="collection-badges">
+            <span class="format-badge ${formatClass}">
+              ${escapeHtml(
+                movie.format ||
+                "brak formatu"
+              )}
+            </span>
+
+            <span class="year-badge">
+              ${year}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="collection-details">
+        ${shelf}
+
+        <div class="collection-detail">
+          <span>Kod kreskowy</span>
+          <strong>
+            ${escapeHtml(
+              movie.barcode || "brak"
+            )}
+          </strong>
+        </div>
+      </div>
+
+      ${notes}
+      ${added}
+    </article>
+  `;
+}
+
+function getFormatClass(format) {
+  const normalized =
+    String(format || "")
+      .trim()
+      .toLowerCase();
+
+  if (normalized === "dvd") {
+    return "format-dvd";
+  }
+
+  if (
+    normalized === "blu-ray" ||
+    normalized === "bluray" ||
+    normalized === "blu ray"
+  ) {
+    return "format-bluray";
+  }
+
+  if (
+    normalized === "4k" ||
+    normalized === "4k uhd" ||
+    normalized === "uhd"
+  ) {
+    return "format-uhd";
+  }
+
+  return "";
+}
+
+function formatAddedDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const text =
+    String(value).trim();
+
+  const match =
+    text.match(
+      /^(\d{4})-(\d{2})-(\d{2})/
+    );
+
+  if (match) {
+    return (
+      match[3] +
+      "." +
+      match[2] +
+      "." +
+      match[1]
+    );
+  }
+
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return text;
+  }
+
+  return date.toLocaleDateString(
+    "pl-PL"
   );
 }
 
@@ -396,6 +698,13 @@ function renderScanResult(
       <br><br>
 
       <button
+        class="button collection"
+        onclick="openCollection()"
+      >
+        📚 Moja kolekcja
+      </button>
+
+      <button
         class="button scan"
         onclick="startScanner()"
       >
@@ -468,6 +777,7 @@ async function searchTmdb() {
     $("tmdbSearchButton");
 
   button.disabled = true;
+
   button.textContent =
     "Szukanie w TMDb...";
 
@@ -503,6 +813,7 @@ async function searchTmdb() {
     `;
   } finally {
     button.disabled = false;
+
     button.textContent =
       "🎞 Znajdź dane filmu";
   }
@@ -553,7 +864,6 @@ function renderTmdbResults() {
             <button
               class="tmdb-result"
               type="button"
-              data-index="${index}"
               onclick="selectTmdbMovie(${index})"
             >
               ${poster}
@@ -652,12 +962,12 @@ function applyTmdbMovie(movie) {
   const selectedPanel =
     $("selectedMoviePanel");
 
-  selectedPanel
-    .classList.remove("hidden");
+  selectedPanel.classList.remove(
+    "hidden"
+  );
 
-  $("selectedMovieTitle")
-    .textContent =
-      movie.title || "";
+  $("selectedMovieTitle").textContent =
+    movie.title || "";
 
   const details = [];
 
@@ -680,13 +990,11 @@ function applyTmdbMovie(movie) {
     );
   }
 
-  $("selectedMovieDetails")
-    .textContent =
-      details.join(" · ");
+  $("selectedMovieDetails").textContent =
+    details.join(" · ");
 
-  $("selectedMovieDescription")
-    .textContent =
-      movie.description || "";
+  $("selectedMovieDescription").textContent =
+    movie.description || "";
 
   const poster =
     $("selectedPoster");
@@ -707,20 +1015,22 @@ function resetTmdbSelection() {
   $("tmdbStatus").innerHTML = "";
   $("tmdbResults").innerHTML = "";
 
-  $("selectedMoviePanel")
-    .classList.add("hidden");
+  $("selectedMoviePanel").classList.add(
+    "hidden"
+  );
 
-  $("selectedPoster")
-    .removeAttribute("src");
+  $("selectedPoster").removeAttribute(
+    "src"
+  );
 
-  $("selectedMovieTitle")
-    .textContent = "";
+  $("selectedMovieTitle").textContent =
+    "";
 
-  $("selectedMovieDetails")
-    .textContent = "";
+  $("selectedMovieDetails").textContent =
+    "";
 
-  $("selectedMovieDescription")
-    .textContent = "";
+  $("selectedMovieDescription").textContent =
+    "";
 }
 
 async function addMovie() {
@@ -760,6 +1070,7 @@ async function addMovie() {
     $("saveButton");
 
   button.disabled = true;
+
   button.textContent =
     "Zapisywanie...";
 
@@ -792,6 +1103,8 @@ async function addMovie() {
 
     resetTmdbSelection();
 
+    collectionCache = [];
+
     await updateStats();
 
     alert(
@@ -809,6 +1122,13 @@ async function addMovie() {
       </div>
 
       <button
+        class="button collection"
+        onclick="openCollection()"
+      >
+        📚 Zobacz kolekcję
+      </button>
+
+      <button
         class="button scan"
         onclick="startScanner()"
       >
@@ -822,6 +1142,7 @@ async function addMovie() {
     );
   } finally {
     button.disabled = false;
+
     button.textContent =
       "Zapisz film";
   }
