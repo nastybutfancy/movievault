@@ -8,10 +8,22 @@
   "theme_color": "#080b16",
   "icons": [
     {
-      "src": "movievault-icon.webp",
+      "src": "movievault-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "movievault-icon-512.png",
       "sizes": "512x512",
-      "type": "image/webp",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "movievault-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
