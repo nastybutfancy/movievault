@@ -4,10 +4,68 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#070b14">
-  <title>MovieVault 3.0.1</title>
+  <title>MovieVault 3.0.2</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=301">
+  <link rel="stylesheet" href="./styles.css?v=302">
   <script src="https://unpkg.com/@zxing/browser@latest"></script>
+
+  <script>
+    (function () {
+      // Twarde odpięcie poprzednich wersji PWA i ich cache.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then(function (registrations) {
+            return Promise.all(registrations.map(function (registration) {
+              return registration.unregister();
+            }));
+          })
+          .catch(console.error);
+      }
+
+      if ("caches" in window) {
+        caches.keys()
+          .then(function (keys) {
+            return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+          })
+          .catch(console.error);
+      }
+
+      // Awaryjna nawigacja działa nawet wtedy, gdy moduł aplikacji zgłosi błąd.
+      document.addEventListener("DOMContentLoaded", function () {
+        function showFallbackView(id) {
+          document.querySelectorAll(".view").forEach(function (view) {
+            view.classList.toggle("hidden", view.id !== id);
+          });
+
+          document.querySelectorAll("[data-view-target]").forEach(function (button) {
+            button.classList.toggle("active", button.dataset.viewTarget === id);
+          });
+
+          window.scrollTo(0, 0);
+        }
+
+        var brand = document.getElementById("brandHomeButton");
+        if (brand) brand.addEventListener("click", function () {
+          showFallbackView("homeView");
+        });
+
+        document.querySelectorAll("[data-view-target]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            showFallbackView(button.dataset.viewTarget);
+          });
+        });
+
+        window.addEventListener("error", function (event) {
+          var description = document.getElementById("dailyDescription");
+          if (description && /module|script|import/i.test(String(event.message || ""))) {
+            description.textContent =
+              "Nie udało się uruchomić kodu aplikacji. Odśwież stronę po zakończeniu publikacji GitHub Pages.";
+          }
+        });
+      });
+    })();
+  </script>
+
 </head>
 
 <body>
@@ -206,6 +264,6 @@
       <div class="roulette-actions"><button id="spinRouletteButton" class="mv-primary" type="button">🎲 Losuj film</button><button id="openRouletteMovieButton" class="mv-secondary hidden" type="button">Otwórz szczegóły</button></div>
     </div>
   </dialog>
-  <script type="module" src="./app.js?v=301"></script>
+  <script type="module" src="./app-302.js"></script>
 </body>
 </html>
