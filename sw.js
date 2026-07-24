@@ -1,4 +1,4 @@
-const CACHE = "movievault-v2";
+const CACHE_NAME = "movievault-v4";
 
 const ASSETS = [
   "./",
