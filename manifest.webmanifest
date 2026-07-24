@@ -7,9 +7,9 @@
   <meta name="description" content="MovieVault — cyfrowe archiwum fizycznej kolekcji filmów.">
   <title>MovieVault</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=3.1.5">
+  <link rel="stylesheet" href="styles.css?v=3.1.6">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.1.5" defer></script>
+  <script src="app.js?v=3.1.6" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
@@ -17,10 +17,7 @@
 
   <header class="topbar">
     <button class="brand brand-with-logo" type="button" data-home aria-label="Przejdź na stronę główną">
-      <span class="brand-lockup" aria-hidden="true">
-        <img class="brand-icon-image" src="movievault-icon.webp" alt="">
-        <span class="brand-wording"><strong>Movie<span>Vault</span></strong><small>COLLECT • SCAN • ARCHIVE</small></span>
-      </span>
+      <img class="brand-logo-image" src="movievault-logo.webp" alt="MovieVault — Collect, Scan, Archive">
     </button>
 
     <nav class="desktop-nav" aria-label="Główna nawigacja">
@@ -239,14 +236,6 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><small>Więcej</small>
     </button>
   </nav>
-
-  <div id="movieDetailsModal" class="movie-details-modal hidden" role="dialog" aria-modal="true" aria-labelledby="movieDetailsTitle">
-    <button class="movie-details-backdrop" type="button" data-close-details aria-label="Zamknij"></button>
-    <article class="movie-details-card">
-      <button class="movie-details-close" type="button" data-close-details aria-label="Zamknij">×</button>
-      <div id="movieDetailsContent"></div>
-    </article>
-  </div>
 
   <div id="randomModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="randomTitle">
     <button class="modal-backdrop" type="button" data-close-random aria-label="Zamknij"></button>
