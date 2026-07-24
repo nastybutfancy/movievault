@@ -2,90 +2,197 @@ import { apiRequest } from "./api.js";
 import { state } from "./state.js";
 import { $, escapeHtml, normalizeBarcode, showView, formatDate } from "./utils.js";
 
+let activeFormat = "all";
+
 export async function loadCollection() {
   $("collectionCount").textContent = "Ładowanie kolekcji...";
   $("collectionGrid").innerHTML = "";
-  const response = await apiRequest("collection", { sort: $("collectionSort").value });
+  $("recentCollection").innerHTML = "";
+
+  const response = await apiRequest("collection", {
+    sort: $("collectionSort").value
+  });
+
   state.movies = Array.isArray(response.movies) ? response.movies : [];
+  activeFormat = "all";
+  syncFormatChips();
   renderCollection();
 }
 
 export function renderCollection() {
   const needle = $("collectionFilter").value.trim().toLowerCase();
-  const movies = state.movies.filter(movie =>
-    [movie.title, movie.year, movie.format, movie.shelf, movie.barcode, movie.notes]
-      .join(" ").toLowerCase().includes(needle)
-  );
 
-  $("collectionCount").textContent = needle
-    ? `Znaleziono: ${movies.length} z ${state.movies.length}`
-    : `Liczba filmów: ${state.movies.length}`;
+  const movies = state.movies.filter(movie => {
+    const matchesSearch = [
+      movie.title,
+      movie.year,
+      movie.format,
+      movie.shelf,
+      movie.barcode,
+      movie.notes
+    ].join(" ").toLowerCase().includes(needle);
+
+    const matchesFormat =
+      activeFormat === "all" ||
+      normalizeFormat(movie.format) === activeFormat;
+
+    return matchesSearch && matchesFormat;
+  });
+
+  renderRecentMovies();
+
+  $("collectionCount").textContent =
+    needle || activeFormat !== "all"
+      ? `Wyświetlono ${movies.length} z ${state.movies.length}`
+      : `${state.movies.length} ${pluralizeMovies(state.movies.length)} w kolekcji`;
 
   $("collectionGrid").innerHTML = movies.length
     ? movies.map(cardTemplate).join("")
-    : `<div class="list-item">Brak filmów do wyświetlenia.</div>`;
+    : emptyStateTemplate();
 
-  document.querySelectorAll("[data-open-movie]").forEach(button => {
-    button.addEventListener("click", () => openMovie(button.dataset.openMovie));
-  });
-  document.querySelectorAll("[data-edit-movie]").forEach(button => {
-    button.addEventListener("click", () => startEdit(button.dataset.editMovie));
-  });
-  document.querySelectorAll("[data-delete-movie]").forEach(button => {
-    button.addEventListener("click", () => removeMovie(button.dataset.deleteMovie));
-  });
+  bindMovieButtons();
+}
+
+export function setCollectionFormat(format) {
+  activeFormat = format;
+  syncFormatChips();
+  renderCollection();
+}
+
+function renderRecentMovies() {
+  const recentMovies = [...state.movies]
+    .sort((a, b) => getMovieTimestamp(b) - getMovieTimestamp(a))
+    .slice(0, 10);
+
+  $("recentCollection").innerHTML = recentMovies.length
+    ? recentMovies.map(recentCardTemplate).join("")
+    : `<div class="collection-empty compact">
+        <span>🎞️</span>
+        <p>Ostatnio dodane filmy pojawią się tutaj.</p>
+      </div>`;
 }
 
 function cardTemplate(movie) {
   const barcode = normalizeBarcode(movie.barcode);
-  const poster = movie.poster
-    ? `<img src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title)}" loading="lazy">`
-    : `<div class="poster-placeholder">🎬</div>`;
 
   return `<article class="poster-card">
-    <button class="poster-button" data-open-movie="${barcode}" type="button">
-      <div class="poster-wrap">${poster}</div>
+    <button class="poster-button" data-open-movie="${escapeHtml(barcode)}" type="button">
+      <div class="poster-wrap">
+        ${posterTemplate(movie)}
+        <span class="format-ribbon">${escapeHtml(movie.format || "Film")}</span>
+      </div>
       <div class="poster-meta">
         <h3>${escapeHtml(movie.title || "Bez tytułu")}</h3>
-        <div class="badges">
-          <span class="badge">${escapeHtml(movie.format || "brak formatu")}</span>
-          <span class="badge">${escapeHtml(movie.year || "rok nieznany")}</span>
-        </div>
+        <p>${escapeHtml(movie.year || "Rok nieznany")}</p>
       </div>
     </button>
-    <div class="card-actions">
-      <button class="edit-button" data-edit-movie="${barcode}" type="button">Edytuj</button>
-      <button class="delete-button" data-delete-movie="${barcode}" type="button">Usuń</button>
-    </div>
   </article>`;
 }
 
+function recentCardTemplate(movie) {
+  const barcode = normalizeBarcode(movie.barcode);
+
+  return `<button class="recent-card" data-open-movie="${escapeHtml(barcode)}" type="button">
+    <div class="recent-poster">${posterTemplate(movie)}</div>
+    <strong>${escapeHtml(movie.title || "Bez tytułu")}</strong>
+    <span>${escapeHtml(movie.format || "Film")} · ${escapeHtml(movie.year || "—")}</span>
+  </button>`;
+}
+
+function posterTemplate(movie) {
+  return movie.poster
+    ? `<img src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title || "Okładka filmu")}" loading="lazy">`
+    : `<div class="poster-placeholder" aria-hidden="true">🎬</div>`;
+}
+
+function emptyStateTemplate() {
+  return `<div class="collection-empty">
+    <span>📼</span>
+    <h3>Ta część półki jest jeszcze pusta</h3>
+    <p>Zmień filtr albo dodaj nowy film do kolekcji.</p>
+  </div>`;
+}
+
+function bindMovieButtons() {
+  document.querySelectorAll("[data-open-movie]").forEach(button => {
+    button.addEventListener("click", () => openMovie(button.dataset.openMovie));
+  });
+}
+
+function syncFormatChips() {
+  document.querySelectorAll("[data-format-filter]").forEach(button => {
+    const isActive = button.dataset.formatFilter === activeFormat;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
 function findMovie(barcode) {
-  return state.movies.find(movie => normalizeBarcode(movie.barcode) === normalizeBarcode(barcode));
+  return state.movies.find(
+    movie => normalizeBarcode(movie.barcode) === normalizeBarcode(barcode)
+  );
 }
 
 export function openMovie(barcode) {
   const movie = findMovie(barcode);
   if (!movie) return;
 
+  const poster = movie.poster
+    ? `<img class="details-poster" src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title || "Okładka filmu")}">`
+    : `<div class="details-poster details-placeholder">🎬</div>`;
+
   $("dialogContent").innerHTML = `
-    ${movie.poster ? `<img class="dialog-poster" src="${escapeHtml(movie.poster)}" alt="">` : ""}
-    <h2>${escapeHtml(movie.title || "Bez tytułu")}</h2>
-    <p class="muted">${escapeHtml(movie.year || "")} · ${escapeHtml(movie.format || "")}</p>
-    <p><strong>Półka:</strong> ${escapeHtml(movie.shelf || "brak")}</p>
-    <p><strong>Kod:</strong> ${escapeHtml(movie.barcode || "")}</p>
-    ${movie.notes ? `<p>${escapeHtml(movie.notes)}</p>` : ""}
-    <p class="muted">Dodano: ${escapeHtml(formatDate(movie.addedAt || movie.dateAdded || movie.date))}</p>
-    <div class="dialog-actions">
-      <button id="dialogEditButton" class="edit-button" type="button">Edytuj</button>
-      <button id="dialogDeleteButton" class="delete-button" type="button">Usuń</button>
-    </div>`;
+    <article class="movie-details">
+      <div class="details-visual">
+        <div class="details-backdrop"></div>
+        ${poster}
+      </div>
+
+      <div class="details-copy">
+        <p class="eyebrow">MovieVault Collection</p>
+        <h2>${escapeHtml(movie.title || "Bez tytułu")}</h2>
+
+        <div class="details-badges">
+          <span>${escapeHtml(movie.format || "Brak formatu")}</span>
+          <span>${escapeHtml(movie.year || "Rok nieznany")}</span>
+          ${movie.shelf ? `<span>📍 ${escapeHtml(movie.shelf)}</span>` : ""}
+        </div>
+
+        ${movie.notes ? `
+          <section class="details-section">
+            <h3>Notatki kolekcjonera</h3>
+            <p>${escapeHtml(movie.notes)}</p>
+          </section>` : ""}
+
+        <section class="details-facts">
+          <div>
+            <span>Kod kreskowy</span>
+            <strong>${escapeHtml(movie.barcode || "Brak")}</strong>
+          </div>
+          <div>
+            <span>Dodano</span>
+            <strong>${escapeHtml(formatDate(movie.addedAt || movie.dateAdded || movie.date))}</strong>
+          </div>
+          <div>
+            <span>TMDb</span>
+            <strong>${escapeHtml(movie.tmdbId || "Niepołączony")}</strong>
+          </div>
+        </section>
+
+        <div class="dialog-actions">
+          <button id="dialogEditButton" class="edit-button" type="button">Edytuj film</button>
+          <button id="dialogDeleteButton" class="delete-button" type="button">Usuń</button>
+        </div>
+      </div>
+    </article>`;
 
   $("detailsDialog").showModal();
+
   $("dialogEditButton").onclick = () => {
     $("detailsDialog").close();
     startEdit(barcode);
   };
+
   $("dialogDeleteButton").onclick = async () => {
     $("detailsDialog").close();
     await removeMovie(barcode);
@@ -130,10 +237,15 @@ export function startEdit(barcode) {
 export async function removeMovie(barcode) {
   const movie = findMovie(barcode);
   if (!movie) return;
+
   if (!confirm(`Usunąć film „${movie.title || "Bez tytułu"}”?\n\nTej operacji nie można cofnąć.`)) return;
 
   await apiRequest("delete", { barcode: movie.barcode });
-  state.movies = state.movies.filter(item => normalizeBarcode(item.barcode) !== normalizeBarcode(barcode));
+
+  state.movies = state.movies.filter(
+    item => normalizeBarcode(item.barcode) !== normalizeBarcode(barcode)
+  );
+
   renderCollection();
   document.dispatchEvent(new CustomEvent("movievault:stats"));
   alert("Film został usunięty.");
@@ -143,4 +255,27 @@ export function clearEditState() {
   state.editingOriginalBarcode = "";
   state.editingMovie = null;
   state.selectedTmdbMovie = null;
+}
+
+function normalizeFormat(format = "") {
+  const value = String(format).trim().toLowerCase();
+
+  if (value.includes("vhs")) return "vhs";
+  if (value.includes("4k") || value.includes("uhd")) return "4k";
+  if (value.includes("blu")) return "bluray";
+  if (value.includes("dvd")) return "dvd";
+
+  return "other";
+}
+
+function getMovieTimestamp(movie) {
+  const rawDate = movie.addedAt || movie.dateAdded || movie.date;
+  const timestamp = new Date(rawDate || 0).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function pluralizeMovies(count) {
+  if (count === 1) return "film";
+  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14)) return "filmy";
+  return "filmów";
 }
