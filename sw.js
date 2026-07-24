@@ -1,5 +1,5 @@
-const CACHE_NAME = "movievault-collector-3.1.8";
-const ASSETS = ["./", "./index.html", "./styles.css?v=3.1.8", "./app.js?v=3.1.8", "./manifest.webmanifest", "./movievault-logo.webp", "./movievault-icon.webp"];
+const CACHE_NAME = "movievault-collector-3.1.7";
+const ASSETS = ["./", "./index.html", "./styles.css?v=3.1.7", "./app.js?v=3.1.7", "./manifest.webmanifest", "./movievault-logo.webp", "./movievault-icon.webp"];
 
 self.addEventListener("install", event => {
   self.skipWaiting();

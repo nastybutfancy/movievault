@@ -8,9 +8,9 @@
   <title>MovieVault</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="movievault-icon.webp" type="image/webp">
-  <link rel="stylesheet" href="styles.css?v=3.1.8">
+  <link rel="stylesheet" href="styles.css?v=3.1.7">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.1.8" defer></script>
+  <script src="app.js?v=3.1.7" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
@@ -18,11 +18,7 @@
 
   <header class="topbar">
     <button class="brand brand-with-logo" type="button" data-home aria-label="Przejdź na stronę główną">
-      <img class="brand-logo-icon" src="movievault-icon.webp" alt="" aria-hidden="true">
-      <span class="brand-wordmark">
-        <strong>Movie<span>Vault</span></strong>
-        <small>COLLECT <b>•</b> SCAN <b>•</b> ARCHIVE</small>
-      </span>
+      <img class="brand-logo-image" src="movievault-logo.webp" alt="MovieVault — Collect, Scan, Archive">
     </button>
 
     <nav class="desktop-nav" aria-label="Główna nawigacja">
