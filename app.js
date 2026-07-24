@@ -389,14 +389,27 @@ function collectionMovieCard(movie) {
       `
       : "";
 
-  return `
-    <article class="collection-card">
-      <div class="collection-card-top">
-        <div class="collection-cover-placeholder">
-          🎬
-        </div>
+ const cover = movie.poster
+  ? `
+    <img
+      class="collection-cover"
+      src="${escapeHtml(movie.poster)}"
+      alt="Okładka filmu ${escapeHtml(movie.title || "")}"
+      loading="lazy"
+    >
+  `
+  : `
+    <div class="collection-cover-placeholder">
+      🎬
+    </div>
+  `;
 
-        <div class="collection-main-info">
+return `
+  <article class="collection-card">
+    <div class="collection-card-top">
+      ${cover}
+
+      <div class="collection-main-info">
           <h3>
             ${escapeHtml(
               movie.title ||
