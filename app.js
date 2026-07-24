@@ -9,6 +9,7 @@ import {
 } from "./collection.js";
 import { searchTmdb } from "./tmdb.js";
 import { startScanner, stopScanner } from "./scanner.js";
+import { renderHome, setupHome } from "./home.js";
 
 
 let dialogScrollPosition = 0;
@@ -173,8 +174,9 @@ async function runSearch() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   setupDialogScrollLock();
+  setupHome();
   $("openCollectionButton").onclick = async () => {
     showView("collectionView");
     await loadCollection();
@@ -193,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!$("collectionView").classList.contains("hidden")) {
       await loadCollection();
+      renderHome();
     }
   };
 
@@ -239,6 +242,16 @@ document.addEventListener("DOMContentLoaded", () => {
     button.onclick = () => showView("homeView");
   });
 
+  $("brandHomeButton").onclick = () => showView("homeView");
+  document.querySelectorAll("[data-view-target]").forEach(button => {
+    button.onclick = async () => {
+      const target = button.dataset.viewTarget;
+      if (target === "formView") resetForm();
+      showView(target);
+      if (target === "collectionView" && !state.movies.length) await loadCollection();
+    };
+  });
+
   document.addEventListener("movievault:add-barcode", event => {
     resetForm(event.detail);
     showView("formView");
@@ -246,7 +259,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("movievault:stats", updateStats);
 
-  updateStats();
+  await updateStats();
+  try { await loadCollection(); renderHome(); } catch (error) { console.error("Nie udało się załadować Home:", error); }
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(error => {

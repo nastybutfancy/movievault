@@ -4,43 +4,59 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#070b14">
-  <title>MovieVault 2.3</title>
+  <title>MovieVault 3.0</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=23">
+  <link rel="stylesheet" href="./styles.css?v=30">
   <script src="https://unpkg.com/@zxing/browser@latest"></script>
 </head>
 
 <body>
-  <header class="app-header">
-    <div>
-      <p class="eyebrow">Collect • Scan • Archive</p>
-      <h1>MovieVault</h1>
-    </div>
+  <header class="app-header mv-topbar">
+    <button id="brandHomeButton" class="brand-lockup" type="button" aria-label="Przejdź na stronę główną">
+      <img src="./assets/movievault-icon.webp" alt="" class="brand-icon">
+      <span><strong>MovieVault</strong><small>Collect • Scan • Archive</small></span>
+    </button>
+    <nav class="desktop-nav" aria-label="Nawigacja główna">
+      <button class="nav-link active" data-view-target="homeView" type="button">Home</button>
+      <button class="nav-link" data-view-target="collectionView" type="button">Kolekcja</button>
+      <button class="nav-link" data-view-target="formView" type="button">Dodaj</button>
+    </nav>
     <button id="refreshButton" class="icon-button" type="button" aria-label="Odśwież">↻</button>
   </header>
 
   <main class="app-shell">
-    <section id="homeView" class="view">
-      <div class="hero">
-        <div>
-          <p class="hero-kicker">Domowe kino pod kontrolą</p>
-          <h2>Wszystkie filmy. Jedna półka w kieszeni.</h2>
+    <section id="homeView" class="view mv-home">
+      <section id="dailyHero" class="mv-hero">
+        <div class="mv-hero-shade"></div>
+        <div class="mv-hero-content">
+          <div class="mv-hero-brand">
+            <img src="./assets/movievault-icon.webp" alt="MovieVault">
+            <div><p class="eyebrow">Home Experience</p><h1>Twoja kolekcja.<br>Twój wieczór filmowy.</h1></div>
+          </div>
+          <p id="dailyDescription" class="mv-hero-description">Ładuję film dnia...</p>
+          <div class="mv-hero-actions">
+            <button id="dailyOpenButton" class="mv-primary" type="button">▶ Otwórz film dnia</button>
+            <button id="rouletteButton" class="mv-secondary" type="button">🎲 Co dziś oglądam?</button>
+          </div>
         </div>
+      </section>
 
-        <div class="stats-grid">
-          <article><strong id="totalStat">0</strong><span>Wszystkie</span></article>
-          <article><strong id="dvdStat">0</strong><span>DVD</span></article>
-          <article><strong id="blurayStat">0</strong><span>Blu-ray</span></article>
-          <article><strong id="uhdStat">0</strong><span>4K</span></article>
-        </div>
-      </div>
+      <section class="home-search-panel">
+        <label for="homeSearchInput">Przeszukaj swoją filmotekę</label>
+        <div><input id="homeSearchInput" type="search" placeholder="Tytuł, rok, format lub półka..."><button id="homeSearchButton" type="button">Szukaj</button></div>
+      </section>
 
-      <div class="action-grid">
-        <button id="openScannerButton" class="primary-card" type="button">📷<span>Skanuj kod</span></button>
-        <button id="openCollectionButton" class="primary-card" type="button">🎞️<span>Kolekcja</span></button>
-        <button id="openAddButton" class="primary-card" type="button">➕<span>Dodaj film</span></button>
-        <button id="openSearchButton" class="primary-card" type="button">🔎<span>Szukaj</span></button>
-      </div>
+      <section class="home-stats" aria-label="Statystyki kolekcji">
+        <button data-home-format="all" type="button"><strong id="totalStat">0</strong><span>filmów</span></button>
+        <button data-home-format="dvd" type="button"><strong id="dvdStat">0</strong><span>DVD</span></button>
+        <button data-home-format="bluray" type="button"><strong id="blurayStat">0</strong><span>Blu-ray</span></button>
+        <button data-home-format="4k" type="button"><strong id="uhdStat">0</strong><span>4K UHD</span></button>
+        <article><strong id="ratingStat">—</strong><span>średnia TMDb</span></article>
+      </section>
+
+      <section class="home-row-section"><div class="home-row-heading"><div><p class="eyebrow">Nowe nabytki</p><h2>Ostatnio dodane</h2></div><button data-view-target="collectionView" type="button">Zobacz wszystko</button></div><div id="homeRecentRow" class="home-movie-row"></div></section>
+      <section class="home-row-section"><div class="home-row-heading"><div><p class="eyebrow">Nocny klimat</p><h2>Horrory i thrillery</h2></div></div><div id="homeHorrorRow" class="home-movie-row"></div></section>
+      <section class="home-row-section"><div class="home-row-heading"><div><p class="eyebrow">Wysoka jakość</p><h2>Blu-ray i 4K</h2></div></div><div id="homeHdRow" class="home-movie-row"></div></section>
     </section>
 
     <section id="collectionView" class="view hidden">
@@ -180,6 +196,16 @@
     <div id="dialogContent"></div>
   </dialog>
 
-  <script type="module" src="./app.js?v=23"></script>
+
+  <dialog id="rouletteDialog" class="roulette-dialog">
+    <button id="closeRouletteButton" class="dialog-close" type="button" aria-label="Zamknij">×</button>
+    <div class="roulette-stage">
+      <p class="eyebrow">Movie Roulette</p><h2>Co dziś oglądamy?</h2>
+      <div id="rouletteReel" class="roulette-reel"><div class="roulette-placeholder">🎬</div></div>
+      <div id="rouletteResult" class="roulette-result"><strong>Kliknij i zdaj się na MovieVault</strong><span>Losujemy wyłącznie z Twojej kolekcji.</span></div>
+      <div class="roulette-actions"><button id="spinRouletteButton" class="mv-primary" type="button">🎲 Losuj film</button><button id="openRouletteMovieButton" class="mv-secondary hidden" type="button">Otwórz szczegóły</button></div>
+    </div>
+  </dialog>
+  <script type="module" src="./app.js?v=30"></script>
 </body>
 </html>
