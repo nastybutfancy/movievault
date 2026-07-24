@@ -87,3 +87,180 @@
   max-height: 120px;
   overflow: auto;
 }
+
+.button.collection {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.collection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.collection-header h2 {
+  margin-bottom: 4px;
+}
+
+.small-button {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #e5e7eb;
+  color: #111827;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#collectionResults {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.collection-card {
+  padding: 14px;
+  border: 1px solid #dbe1ea;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow:
+    0 4px 16px
+    rgba(15, 23, 42, 0.07);
+}
+
+.collection-card-top {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.collection-cover-placeholder {
+  width: 58px;
+  min-width: 58px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      145deg,
+      #1e293b,
+      #475569
+    );
+  font-size: 25px;
+}
+
+.collection-main-info {
+  min-width: 0;
+}
+
+.collection-main-info h3 {
+  margin: 0 0 9px;
+  font-size: 18px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.collection-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.format-badge,
+.year-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.format-badge {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.format-dvd {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.format-bluray {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.format-uhd {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.year-badge {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.collection-details {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.collection-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 8px;
+  border-top: 1px solid #eef2f7;
+  font-size: 13px;
+}
+
+.collection-detail span {
+  color: #64748b;
+}
+
+.collection-detail strong {
+  max-width: 65%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.collection-notes {
+  margin: 12px 0 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.collection-added {
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 11px;
+  text-align: right;
+}
+
+.empty-collection {
+  padding: 30px 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.empty-collection-icon {
+  margin-bottom: 8px;
+  font-size: 38px;
+}
+
+.empty-collection p {
+  margin-bottom: 0;
+  color: #64748b;
+}
