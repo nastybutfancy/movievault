@@ -1,9 +1,10 @@
 {
   "name": "MovieVault",
   "short_name": "MovieVault",
+  "description": "Cyfrowe archiwum fizycznej kolekcji filmów.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#070b14",
-  "theme_color": "#111827",
+  "background_color": "#070a13",
+  "theme_color": "#080b16",
   "icons": []
 }
