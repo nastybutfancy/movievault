@@ -1,6 +1,6 @@
-import { state } from "./state.js";
-import { $, escapeHtml, normalizeBarcode, showView } from "./utils.js";
-import { openMovie, setCollectionFormat, renderCollection } from "./collection.js";
+import { state } from "./state-302.js";
+import { $, escapeHtml, normalizeBarcode, showView } from "./utils-302.js";
+import { openMovie, setCollectionFormat, renderCollection } from "./collection-302.js";
 
 let dailyMovie = null;
 let rouletteMovie = null;
