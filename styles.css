@@ -280,3 +280,22 @@
 .collection-cover-placeholder {
   height: 86px;
 }
+.collection-card {
+  color: #111827;
+}
+
+.collection-main-info h3 {
+  color: #111827;
+}
+
+.collection-detail strong {
+  color: #111827;
+}
+
+.collection-notes {
+  color: #475569;
+}
+
+.collection-added {
+  color: #94a3b8;
+}
