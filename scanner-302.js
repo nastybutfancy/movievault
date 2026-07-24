@@ -1,6 +1,6 @@
-import { apiRequest } from "./api.js";
-import { state } from "./state.js";
-import { $, normalizeBarcode, showView } from "./utils.js";
+import { apiRequest } from "./api-302.js";
+import { state } from "./state-302.js";
+import { $, normalizeBarcode, showView } from "./utils-302.js";
 
 export async function startScanner() {
   showView("scannerView");

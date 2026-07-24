@@ -1,429 +1,97 @@
-import { apiRequest } from "./api-302.js";
-import { state } from "./state-302.js";
-import { $, escapeHtml, normalizeBarcode, showView, formatDate } from "./utils-302.js";
+import { state } from "./state.js";
+import { $, escapeHtml, normalizeBarcode, showView } from "./utils.js";
+import { openMovie, setCollectionFormat, renderCollection } from "./collection.js";
 
-let activeFormat = "all";
+let dailyMovie = null;
+let rouletteMovie = null;
 
-export async function loadCollection() {
-  $("collectionCount").textContent = "Ładowanie kolekcji...";
-  $("collectionGrid").innerHTML = "";
-  $("recentCollection").innerHTML = "";
+const timestamp = movie => new Date(movie.addedAt || movie.dateAdded || movie.date || 0).getTime() || 0;
+const metadata = value => String(value || "").toLowerCase();
 
-  const response = await apiRequest("collection", {
-    sort: $("collectionSort").value
-  });
-
-  state.movies = Array.isArray(response.movies) ? response.movies : [];
-  activeFormat = "all";
-  syncFormatChips();
-  renderCollection();
-}
-
-export function renderCollection() {
-  const needle = $("collectionFilter").value.trim().toLowerCase();
-
-  const movies = state.movies.filter(movie => {
-    const matchesSearch = [
-      movie.title,
-      movie.year,
-      movie.format,
-      movie.shelf,
-      movie.barcode,
-      movie.notes
-    ].join(" ").toLowerCase().includes(needle);
-
-    const matchesFormat =
-      activeFormat === "all" ||
-      normalizeFormat(movie.format) === activeFormat;
-
-    return matchesSearch && matchesFormat;
-  });
-
-  renderRecentMovies();
-
-  $("collectionCount").textContent =
-    needle || activeFormat !== "all"
-      ? `Wyświetlono ${movies.length} z ${state.movies.length}`
-      : `${state.movies.length} ${pluralizeMovies(state.movies.length)} w kolekcji`;
-
-  $("collectionGrid").innerHTML = movies.length
-    ? movies.map(cardTemplate).join("")
-    : emptyStateTemplate();
-
-  bindMovieButtons();
-}
-
-export function setCollectionFormat(format) {
-  activeFormat = format;
-  syncFormatChips();
-  renderCollection();
-}
-
-function renderRecentMovies() {
-  const recentMovies = [...state.movies]
-    .sort((a, b) => getMovieTimestamp(b) - getMovieTimestamp(a))
-    .slice(0, 10);
-
-  $("recentCollection").innerHTML = recentMovies.length
-    ? recentMovies.map(recentCardTemplate).join("")
-    : `<div class="collection-empty compact">
-        <span>🎞️</span>
-        <p>Ostatnio dodane filmy pojawią się tutaj.</p>
-      </div>`;
-}
-
-function cardTemplate(movie) {
-  const barcode = normalizeBarcode(movie.barcode);
-
-  return `<article class="poster-card">
-    <button class="poster-button" data-open-movie="${escapeHtml(barcode)}" type="button">
-      <div class="poster-wrap">
-        ${posterTemplate(movie)}
-        <span class="format-ribbon">${escapeHtml(movie.format || "Film")}</span>
-      </div>
-      <div class="poster-meta">
-        <h3>${escapeHtml(movie.title || "Bez tytułu")}</h3>
-        <p>${escapeHtml(movie.year || "Rok nieznany")}</p>
-      </div>
-    </button>
-  </article>`;
-}
-
-function recentCardTemplate(movie) {
-  const barcode = normalizeBarcode(movie.barcode);
-
-  return `<button class="recent-card" data-open-movie="${escapeHtml(barcode)}" type="button">
-    <div class="recent-poster">${posterTemplate(movie)}</div>
-    <strong>${escapeHtml(movie.title || "Bez tytułu")}</strong>
-    <span>${escapeHtml(movie.format || "Film")} · ${escapeHtml(movie.year || "—")}</span>
+function movieCard(movie) {
+  const code = normalizeBarcode(movie.barcode);
+  return `<button class="home-poster-card" data-home-movie="${escapeHtml(code)}" type="button">
+    <span class="home-poster-art">${movie.poster ? `<img src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title || 'Film')}" loading="lazy">` : '<span class="poster-placeholder">🎬</span>'}<em>${escapeHtml(movie.format || 'Film')}</em></span>
+    <strong>${escapeHtml(movie.title || 'Bez tytułu')}</strong><small>${escapeHtml(movie.year || '—')}</small>
   </button>`;
 }
 
-function posterTemplate(movie) {
-  return movie.poster
-    ? `<img src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title || "Okładka filmu")}" loading="lazy">`
-    : `<div class="poster-placeholder" aria-hidden="true">🎬</div>`;
+function fillRow(id, movies) {
+  $(id).innerHTML = movies.length ? movies.map(movieCard).join('') : '<div class="home-row-empty">Ta półka czeka na pierwsze filmy.</div>';
 }
 
-function emptyStateTemplate() {
-  return `<div class="collection-empty">
-    <span>📼</span>
-    <h3>Ta część półki jest jeszcze pusta</h3>
-    <p>Zmień filtr albo dodaj nowy film do kolekcji.</p>
-  </div>`;
+function bindCards() {
+  document.querySelectorAll('[data-home-movie]').forEach(button => button.onclick = () => openMovie(button.dataset.homeMovie));
 }
 
-function bindMovieButtons() {
-  document.querySelectorAll("[data-open-movie]").forEach(button => {
-    button.addEventListener("click", () => openMovie(button.dataset.openMovie));
-  });
-}
+export function renderHome() {
+  const movies = state.movies || [];
+  const today = new Date();
+  dailyMovie = movies.length ? movies[Math.abs(Number(`${today.getFullYear()}${today.getMonth()+1}${today.getDate()}`)) % movies.length] : null;
 
-function syncFormatChips() {
-  document.querySelectorAll("[data-format-filter]").forEach(button => {
-    const isActive = button.dataset.formatFilter === activeFormat;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  });
-}
+  const ratings = movies.map(m => Number.parseFloat(m.voteAverage)).filter(Number.isFinite);
+  $('ratingStat').textContent = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1) : '—';
 
-function findMovie(barcode) {
-  return state.movies.find(
-    movie => normalizeBarcode(movie.barcode) === normalizeBarcode(barcode)
-  );
-}
-
-export function openMovie(barcode) {
-  const movie = findMovie(barcode);
-  if (!movie) return;
-
-  const poster = movie.poster
-    ? `<img class="details-poster" src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title || "Okładka filmu")}">`
-    : `<div class="details-poster details-placeholder">🎬</div>`;
-
-  const backdropStyle = movie.backdrop
-    ? `style="background-image: linear-gradient(to top, #0b1220 0%, rgba(11,18,32,.15) 58%, rgba(11,18,32,.48) 100%), url('${escapeHtml(movie.backdrop)}')"`
-    : "";
-
-  const genres = splitMetadata(movie.genres);
-  const cast = splitMetadata(movie.cast);
-  const rating = movie.voteAverage
-    ? `<span class="rating-badge">★ ${escapeHtml(formatRating(movie.voteAverage))} TMDb</span>`
-    : "";
-
-  $("dialogContent").innerHTML = `
-    <article class="movie-details cinematic-details">
-      <div class="cinematic-backdrop" ${backdropStyle}></div>
-
-      <div class="details-visual">
-        ${poster}
-      </div>
-
-      <div class="details-copy">
-        <p class="eyebrow">MovieVault Collection</p>
-        <h2>${escapeHtml(movie.title || "Bez tytułu")}</h2>
-        ${movie.originalTitle && movie.originalTitle !== movie.title
-          ? `<p class="original-title">${escapeHtml(movie.originalTitle)}</p>`
-          : ""}
-
-        <div class="details-badges">
-          <span>${escapeHtml(movie.format || "Brak formatu")}</span>
-          <span>${escapeHtml(movie.year || "Rok nieznany")}</span>
-          ${movie.runtime ? `<span>${escapeHtml(formatRuntime(movie.runtime))}</span>` : ""}
-          ${movie.shelf ? `<span>📍 ${escapeHtml(movie.shelf)}</span>` : ""}
-          ${rating}
-        </div>
-
-        ${genres.length ? `
-          <div class="genre-list">
-            ${genres.map(genre => `<span>${escapeHtml(genre)}</span>`).join("")}
-          </div>` : ""}
-
-        ${movie.description ? `
-          <section class="details-section synopsis-section">
-            <h3>Opis filmu</h3>
-            <p>${escapeHtml(movie.description)}</p>
-          </section>` : ""}
-
-        ${movie.director || cast.length ? `
-          <section class="credits-grid">
-            ${movie.director ? `
-              <div>
-                <span>Reżyseria</span>
-                <strong>${escapeHtml(movie.director)}</strong>
-              </div>` : ""}
-            ${cast.length ? `
-              <div>
-                <span>Obsada</span>
-                <strong>${cast.map(escapeHtml).join(", ")}</strong>
-              </div>` : ""}
-          </section>` : ""}
-
-        ${movie.notes ? `
-          <section class="details-section collector-notes">
-            <h3>Notatki kolekcjonera</h3>
-            <p>${escapeHtml(movie.notes)}</p>
-          </section>` : ""}
-
-        <section class="details-facts">
-          <div>
-            <span>Kod kreskowy</span>
-            <strong>${escapeHtml(movie.barcode || "Brak")}</strong>
-          </div>
-          <div>
-            <span>Dodano</span>
-            <strong>${escapeHtml(formatDate(movie.addedAt || movie.dateAdded || movie.date))}</strong>
-          </div>
-          <div>
-            <span>TMDb</span>
-            <strong>${escapeHtml(movie.tmdbId || "Niepołączony")}</strong>
-          </div>
-        </section>
-
-        <div class="dialog-actions metadata-actions">
-          ${movie.trailer
-            ? `<a class="trailer-button" href="${escapeHtml(movie.trailer)}" target="_blank" rel="noopener noreferrer">▶ Zwiastun</a>`
-            : ""}
-          <button id="dialogEditButton" class="edit-button" type="button">Edytuj film</button>
-          <button id="dialogDeleteButton" class="delete-button" type="button">Usuń</button>
-        </div>
-      </div>
-    </article>`;
-
-  applyMovieAccent(movie.poster || movie.backdrop || "");
-  $("detailsDialog").showModal();
-
-  $("dialogEditButton").onclick = () => {
-    $("detailsDialog").close();
-    startEdit(barcode);
-  };
-
-  $("dialogDeleteButton").onclick = async () => {
-    $("detailsDialog").close();
-    await removeMovie(barcode);
-  };
-}
-
-function splitMetadata(value) {
-  if (Array.isArray(value)) return value.filter(Boolean);
-  return String(value || "")
-    .split(/\s*\|\s*|\s*,\s*/)
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-function formatRuntime(value) {
-  const minutes = Number.parseInt(value, 10);
-  if (!minutes) return String(value || "");
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return hours ? `${hours} godz. ${rest} min` : `${rest} min`;
-}
-
-function formatRating(value) {
-  const rating = Number.parseFloat(value);
-  return Number.isFinite(rating) ? rating.toFixed(1) : String(value || "");
-}
-
-
-function applyMovieAccent(imageUrl) {
-  const dialog = $("detailsDialog");
-  const fallback = { r: 99, g: 102, b: 241 };
-
-  const setAccent = ({ r, g, b }) => {
-    dialog.style.setProperty("--movie-accent-rgb", `${r}, ${g}, ${b}`);
-    dialog.style.setProperty("--movie-accent", `rgb(${r}, ${g}, ${b})`);
-  };
-
-  if (!imageUrl) {
-    setAccent(fallback);
-    return;
-  }
-
-  const image = new Image();
-  image.crossOrigin = "anonymous";
-  image.decoding = "async";
-
-  image.onload = () => {
-    try {
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-
-      canvas.width = 32;
-      canvas.height = 32;
-      context.drawImage(image, 0, 0, 32, 32);
-
-      const pixels = context.getImageData(0, 0, 32, 32).data;
-      let red = 0;
-      let green = 0;
-      let blue = 0;
-      let weightTotal = 0;
-
-      for (let index = 0; index < pixels.length; index += 16) {
-        const r = pixels[index];
-        const g = pixels[index + 1];
-        const b = pixels[index + 2];
-        const alpha = pixels[index + 3] / 255;
-
-        const brightness = (r + g + b) / 3;
-        const saturation = Math.max(r, g, b) - Math.min(r, g, b);
-
-        if (alpha < .6 || brightness < 24 || brightness > 232) continue;
-
-        const weight = 1 + saturation / 90;
-        red += r * weight;
-        green += g * weight;
-        blue += b * weight;
-        weightTotal += weight;
-      }
-
-      if (!weightTotal) {
-        setAccent(fallback);
-        return;
-      }
-
-      const normalize = value => Math.max(54, Math.min(214, Math.round(value / weightTotal)));
-
-      setAccent({
-        r: normalize(red),
-        g: normalize(green),
-        b: normalize(blue)
-      });
-    } catch (error) {
-      setAccent(fallback);
-    }
-  };
-
-  image.onerror = () => setAccent(fallback);
-  image.src = imageUrl;
-}
-
-export function startEdit(barcode) {
-  const movie = findMovie(barcode);
-  if (!movie) return;
-
-  state.editingOriginalBarcode = normalizeBarcode(movie.barcode);
-  state.editingMovie = { ...movie };
-  state.selectedTmdbMovie = {
-    tmdbId: movie.tmdbId || "",
-    poster: movie.poster || "",
-    title: movie.title || "",
-    originalTitle: movie.originalTitle || "",
-    year: movie.year || "",
-    description: movie.description || "",
-    genres: movie.genres || "",
-    runtime: movie.runtime || "",
-    director: movie.director || "",
-    cast: movie.cast || "",
-    voteAverage: movie.voteAverage || "",
-    backdrop: movie.backdrop || "",
-    trailer: movie.trailer || ""
-  };
-
-  $("formEyebrow").textContent = "Edycja";
-  $("formTitle").textContent = "Edytuj film";
-  $("saveMovieButton").textContent = "Zapisz zmiany";
-  $("barcodeInput").value = movie.barcode || "";
-  $("titleInput").value = movie.title || "";
-  $("formatInput").value = movie.format || "DVD";
-  $("yearInput").value = movie.year || "";
-  $("shelfInput").value = movie.shelf || "";
-  $("notesInput").value = movie.notes || "";
-
-  if (movie.poster) {
-    $("selectedPoster").src = movie.poster;
-    $("selectedTmdbTitle").textContent = movie.title || "";
-    $("selectedTmdbDetails").textContent = movie.year || "";
-    $("selectedTmdb").classList.remove("hidden");
+  const hero = $('dailyHero');
+  if (dailyMovie) {
+    hero.style.backgroundImage = `url("${dailyMovie.backdrop || dailyMovie.poster || ''}")`;
+    $('dailyDescription').textContent = `${dailyMovie.title || 'Film dnia'}${dailyMovie.year ? ` • ${dailyMovie.year}` : ''}${dailyMovie.description ? ` — ${dailyMovie.description.slice(0,180)}${dailyMovie.description.length > 180 ? '…' : ''}` : ''}`;
+    $('dailyOpenButton').disabled = false;
   } else {
-    $("selectedTmdb").classList.add("hidden");
+    $('dailyDescription').textContent = 'Dodaj pierwszy film, a MovieVault przygotuje dla Ciebie codzienną propozycję.';
+    $('dailyOpenButton').disabled = true;
   }
 
-  showView("formView");
+  fillRow('homeRecentRow', [...movies].sort((a,b)=>timestamp(b)-timestamp(a)).slice(0,12));
+  fillRow('homeHorrorRow', movies.filter(m => /horror|thriller|groza|kryminał/.test(metadata(m.genres))).slice(0,14));
+  fillRow('homeHdRow', movies.filter(m => /blu|4k|uhd/.test(metadata(m.format))).slice(0,14));
+  bindCards();
 }
 
-export async function removeMovie(barcode) {
-  const movie = findMovie(barcode);
-  if (!movie) return;
+export function setupHome() {
+  $('dailyOpenButton').onclick = () => dailyMovie && openMovie(dailyMovie.barcode);
+  $('rouletteButton').onclick = openRoulette;
+  $('closeRouletteButton').onclick = () => $('rouletteDialog').close();
+  $('spinRouletteButton').onclick = spinRoulette;
+  $('openRouletteMovieButton').onclick = () => { if (rouletteMovie) { $('rouletteDialog').close(); openMovie(rouletteMovie.barcode); } };
+  $('rouletteDialog').onclick = event => { if (event.target === $('rouletteDialog')) $('rouletteDialog').close(); };
 
-  if (!confirm(`Usunąć film „${movie.title || "Bez tytułu"}”?\n\nTej operacji nie można cofnąć.`)) return;
+  const search = () => {
+    $('collectionFilter').value = $('homeSearchInput').value.trim();
+    setCollectionFormat('all');
+    showView('collectionView');
+    renderCollection();
+  };
+  $('homeSearchButton').onclick = search;
+  $('homeSearchInput').onkeydown = e => { if (e.key === 'Enter') search(); };
 
-  await apiRequest("delete", { barcode: movie.barcode });
-
-  state.movies = state.movies.filter(
-    item => normalizeBarcode(item.barcode) !== normalizeBarcode(barcode)
-  );
-
-  renderCollection();
-  document.dispatchEvent(new CustomEvent("movievault:stats"));
-  alert("Film został usunięty.");
+  document.querySelectorAll('[data-home-format]').forEach(button => button.onclick = () => {
+    showView('collectionView'); setCollectionFormat(button.dataset.homeFormat);
+  });
 }
 
-export function clearEditState() {
-  state.editingOriginalBarcode = "";
-  state.editingMovie = null;
-  state.selectedTmdbMovie = null;
+function openRoulette() {
+  rouletteMovie = null;
+  $('rouletteReel').innerHTML = '<div class="roulette-placeholder">🎬</div>';
+  $('rouletteResult').innerHTML = '<strong>Kliknij i zdaj się na MovieVault</strong><span>Losujemy wyłącznie z Twojej kolekcji.</span>';
+  $('openRouletteMovieButton').classList.add('hidden');
+  $('rouletteDialog').showModal();
 }
 
-function normalizeFormat(format = "") {
-  const value = String(format).trim().toLowerCase();
-
-  if (value.includes("vhs")) return "vhs";
-  if (value.includes("4k") || value.includes("uhd")) return "4k";
-  if (value.includes("blu")) return "bluray";
-  if (value.includes("dvd")) return "dvd";
-
-  return "other";
-}
-
-function getMovieTimestamp(movie) {
-  const rawDate = movie.addedAt || movie.dateAdded || movie.date;
-  const timestamp = new Date(rawDate || 0).getTime();
-  return Number.isNaN(timestamp) ? 0 : timestamp;
-}
-
-function pluralizeMovies(count) {
-  if (count === 1) return "film";
-  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14)) return "filmy";
-  return "filmów";
+function spinRoulette() {
+  const movies = state.movies || [];
+  if (!movies.length) { $('rouletteResult').innerHTML = '<strong>Twoja półka jest jeszcze pusta</strong><span>Najpierw dodaj film do kolekcji.</span>'; return; }
+  const button = $('spinRouletteButton'); button.disabled = true;
+  let ticks = 0;
+  const timer = setInterval(() => {
+    const movie = movies[Math.floor(Math.random()*movies.length)];
+    $('rouletteReel').innerHTML = movie.poster ? `<img src="${escapeHtml(movie.poster)}" alt="">` : '<div class="roulette-placeholder">🎬</div>';
+    ticks++;
+    if (ticks >= 18) {
+      clearInterval(timer); rouletteMovie = movies[Math.floor(Math.random()*movies.length)];
+      $('rouletteReel').innerHTML = rouletteMovie.poster ? `<img class="roulette-winner" src="${escapeHtml(rouletteMovie.poster)}" alt="${escapeHtml(rouletteMovie.title || '')}">` : '<div class="roulette-placeholder roulette-winner">🎬</div>';
+      $('rouletteResult').innerHTML = `<strong>${escapeHtml(rouletteMovie.title || 'Dzisiejszy wybór')}</strong><span>${escapeHtml(rouletteMovie.year || '')}${rouletteMovie.format ? ` • ${escapeHtml(rouletteMovie.format)}` : ''}</span>`;
+      $('openRouletteMovieButton').classList.remove('hidden'); button.disabled = false; button.textContent = '🎲 Losuj ponownie';
+    }
+  }, 85);
 }
