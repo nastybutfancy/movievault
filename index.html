@@ -7,24 +7,17 @@
   <meta name="description" content="MovieVault — cyfrowe archiwum fizycznej kolekcji filmów.">
   <title>MovieVault</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=3.1.1">
+  <link rel="stylesheet" href="styles.css?v=3.1.2">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.1.1" defer></script>
+  <script src="app.js?v=3.1.2" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
 
   <header class="topbar">
-    <button class="brand" type="button" data-home aria-label="Przejdź na stronę główną">
-      <span class="brand-mark" aria-hidden="true">
-        <span class="brand-disc"></span>
-        <span class="brand-line"></span>
-      </span>
-      <span>
-        <strong>Movie<span>Vault</span></strong>
-        <small>COLLECT • SCAN • ARCHIVE</small>
-      </span>
+    <button class="brand brand-with-logo" type="button" data-home aria-label="Przejdź na stronę główną">
+      <img class="brand-logo-image" src="movievault-logo.webp" alt="MovieVault — Collect, Scan, Archive">
     </button>
 
     <nav class="desktop-nav" aria-label="Główna nawigacja">
@@ -227,11 +220,21 @@
   </main>
 
   <nav class="mobile-nav" aria-label="Mobilna nawigacja">
-    <button class="active" type="button" data-home><span>⌂</span><small>Home</small></button>
-    <button type="button" data-mobile-collection><span>▥</span><small>Kolekcja</small></button>
-    <button class="scan-main" type="button" data-mobile-scan><span>⌗</span><small>Skanuj</small></button>
-    <button type="button" data-mobile-add><span>＋</span><small>Dodaj</small></button>
-    <button type="button" data-mobile-search><span>•••</span><small>Więcej</small></button>
+    <button class="active" type="button" data-home>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-6H9v6H3.5a.5.5 0 0 1-.5-.5z"/></svg><small>Home</small>
+    </button>
+    <button type="button" data-mobile-collection>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3v16H5zM10.5 4h3v16h-3zM16 5l2.8-.7L22 18.8l-2.8.7z"/></svg><small>Kolekcja</small>
+    </button>
+    <button class="scan-main" type="button" data-mobile-scan>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4M9 9h6v6H9z"/></svg><small>Skanuj</small>
+    </button>
+    <button type="button" data-mobile-add>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg><small>Dodaj</small>
+    </button>
+    <button type="button" data-mobile-search>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><small>Więcej</small>
+    </button>
   </nav>
 
   <div id="randomModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="randomTitle">

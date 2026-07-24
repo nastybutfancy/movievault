@@ -293,3 +293,60 @@ textarea { resize:vertical; }
   .collection-cover-placeholder { max-height: none; }
   .collection-toolbar { gap: 18px; }
 }
+
+
+/* MovieVault 3.1.2 — compact collection, original identity and SVG navigation */
+.brand-with-logo { max-width: 330px; }
+.brand-logo-image { display:block; width:300px; max-width:100%; height:72px; object-fit:contain; object-position:left center; }
+
+.collection-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.collection-card {
+  width:100%; min-width:0; padding:0; overflow:hidden; border-radius:15px;
+  background:linear-gradient(180deg,#101626,#0d1220); border:1px solid rgba(255,255,255,.11);
+  box-shadow:none; transition:transform .18s ease,border-color .18s ease;
+}
+.collection-card:hover,.collection-card:focus { transform:translateY(-2px); border-color:rgba(155,92,255,.58); }
+.collection-cover-frame { width:100%; aspect-ratio:2/3; overflow:hidden; background:#080b12; }
+.collection-cover,.collection-cover-placeholder { display:block; width:100%; height:100%; max-height:none; object-fit:cover; border-radius:0; }
+.collection-cover-placeholder { display:grid; place-items:center; font-size:28px; }
+.collection-main-info { padding:10px 10px 11px; min-width:0; }
+.collection-main-info h3 { margin:0 0 8px; font-size:14px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.collection-badges { display:flex; flex-wrap:nowrap; gap:5px; min-width:0; }
+.format-badge,.year-badge { font-size:11px; line-height:1; padding:4px 5px; border-radius:6px; white-space:nowrap; min-width:0; }
+.format-badge { color:#bd7cff; border-color:rgba(155,92,255,.55); }
+.format-badge.bluray { color:#3bbcff; border-color:rgba(59,188,255,.55); }
+.format-badge.uhd { color:#ffc848; border-color:rgba(255,200,72,.58); }
+.year-badge { color:#aeb5c5; }
+.collection-details,.collection-notes,.collection-added { display:none !important; }
+
+.mobile-nav button svg { width:25px; height:25px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.mobile-nav button svg circle:first-child:last-child { fill:none; }
+.mobile-nav button:last-child svg circle { fill:currentColor; stroke:none; }
+.mobile-nav .scan-main svg { width:31px; height:31px; }
+.mobile-nav button small { font-size:12px; }
+
+@media (max-width:760px) {
+  .topbar { height:94px; }
+  .brand-with-logo { max-width:255px; }
+  .brand-logo-image { width:245px; height:67px; }
+  #collectionPanel { padding-bottom:118px; }
+  .collection-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+  .collection-main-info { padding:7px 6px 8px; }
+  .collection-main-info h3 { font-size:11px; margin-bottom:6px; }
+  .format-badge,.year-badge { font-size:9px; padding:3px 4px; }
+  .collection-card { border-radius:11px; }
+  .collection-cover-frame { border-radius:10px 10px 0 0; }
+  .mobile-nav { height:78px; border-radius:24px; }
+  .mobile-nav button { gap:5px; }
+  .mobile-nav button svg { width:26px; height:26px; }
+  .mobile-nav .scan-main { width:84px; height:84px; margin-bottom:5px; }
+  .mobile-nav .scan-main svg { width:33px; height:33px; }
+}
+
+@media (max-width:390px) {
+  .collection-grid { gap:6px; }
+  .collection-main-info { padding:6px 5px 7px; }
+  .collection-main-info h3 { font-size:10px; }
+  .format-badge,.year-badge { font-size:8px; padding:3px; }
+  .brand-logo-image { width:225px; }
+}

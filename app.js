@@ -658,109 +658,22 @@ function renderCollection() {
 }
 
 function collectionMovieCard(movie) {
-  const formatClass =
-    getFormatClass(movie.format);
+  const formatClass = getFormatClass(movie.format);
+  const year = movie.year ? escapeHtml(movie.year) : "—";
+  const cover = movie.poster
+    ? `<img class="collection-cover" src="${escapeHtml(movie.poster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
+    : `<div class="collection-cover-placeholder">🎬</div>`;
 
-  const year =
-    movie.year
-      ? escapeHtml(movie.year)
-      : "rok nieznany";
-
-  const shelf =
-    movie.shelf
-      ? `
-        <div class="collection-detail">
-          <span>Półka</span>
-          <strong>
-            ${escapeHtml(movie.shelf)}
-          </strong>
-        </div>
-      `
-      : "";
-
-  const notes =
-    movie.notes
-      ? `
-        <p class="collection-notes">
-          ${escapeHtml(movie.notes)}
-        </p>
-      `
-      : "";
-
-  const addedDate =
-    formatAddedDate(
-      movie.addedAt ||
-      movie.dateAdded ||
-      movie.date
-    );
-
-  const added =
-    addedDate
-      ? `
-        <div class="collection-added">
-          Dodano: ${escapeHtml(addedDate)}
-        </div>
-      `
-      : "";
-
- const cover = movie.poster
-  ? `
-    <img
-      class="collection-cover"
-      src="${escapeHtml(movie.poster)}"
-      alt="Okładka filmu ${escapeHtml(movie.title || "")}"
-      loading="lazy"
-    >
-  `
-  : `
-    <div class="collection-cover-placeholder">
-      🎬
-    </div>
-  `;
-
-return `
-  <article class="collection-card">
-    <div class="collection-card-top">
-      ${cover}
-
+  return `
+    <article class="collection-card" tabindex="0">
+      <div class="collection-cover-frame">${cover}</div>
       <div class="collection-main-info">
-          <h3>
-            ${escapeHtml(
-              movie.title ||
-              "Bez tytułu"
-            )}
-          </h3>
-
-          <div class="collection-badges">
-            <span class="format-badge ${formatClass}">
-              ${escapeHtml(
-                movie.format ||
-                "brak formatu"
-              )}
-            </span>
-
-            <span class="year-badge">
-              ${year}
-            </span>
-          </div>
+        <h3>${escapeHtml(movie.title || "Bez tytułu")}</h3>
+        <div class="collection-badges">
+          <span class="format-badge ${formatClass}">${escapeHtml(movie.format || "Film")}</span>
+          <span class="year-badge">${year}</span>
         </div>
       </div>
-
-      <div class="collection-details">
-        ${shelf}
-
-        <div class="collection-detail">
-          <span>Kod kreskowy</span>
-          <strong>
-            ${escapeHtml(
-              movie.barcode || "brak"
-            )}
-          </strong>
-        </div>
-      </div>
-
-      ${notes}
-      ${added}
     </article>
   `;
 }
