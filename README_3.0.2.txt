@@ -1,37 +1,27 @@
-MOVIEVAULT 3.0.2 — CACHE RESET
+MOVIEVAULT 3.0.1 — HOTFIX
 
-Ta wersja rozwiązuje sytuację, w której wygląd 3.0 się ładuje, ale:
-- Home / Kolekcja / Dodaj nie reagują,
-- statystyki pokazują 0,
-- stare filmy nie pojawiają się.
+Naprawiono:
+- brak ładowania wcześniej dodanych filmów,
+- statystyki pozostające na 0,
+- niedziałające przyciski Home / Kolekcja / Dodaj,
+- zatrzymywanie całego JavaScriptu podczas startu,
+- stary cache Service Workera.
 
-PRZYCZYNA:
-Przeglądarka mogła łączyć nowe HTML i CSS ze starymi modułami JavaScript
-z pamięci PWA. Wersja 3.0.2 używa zupełnie nowych nazw plików i usuwa cache.
-
-NA GITHUBIE:
-Najbezpieczniej wgraj CAŁĄ zawartość paczki i pozwól zastąpić istniejące pliki.
-
-Najważniejsze nowe pliki:
-- app-302.js
-- home-302.js
-- api-302.js
-- state-302.js
-- utils-302.js
-- collection-302.js
-- tmdb-302.js
-- scanner-302.js
-
-Koniecznie podmień też:
+NA GITHUBIE PODMIEŃ:
+- app.js
 - index.html
-- styles.css
 - sw.js
 
-Po zakończeniu GitHub Pages:
-1. Zamknij wszystkie karty MovieVault.
-2. Otwórz stronę w nowej karcie.
-3. Naciśnij Ctrl+Shift+R.
-4. Pierwsze wejście może potrwać kilka sekund, ponieważ kolekcja jest pobierana od nowa.
+Pozostałych plików nie musisz zmieniać.
 
-Google Apps Script oraz Arkusz pozostają bez zmian.
+Po publikacji:
+1. Poczekaj, aż GitHub Pages zakończy deployment.
+2. Na komputerze naciśnij Ctrl+Shift+R albo Ctrl+F5.
+3. Gdyby nadal była stara wersja:
+   Chrome -> F12 -> Application -> Service Workers -> Unregister,
+   następnie odśwież stronę.
+4. Na iPhonie zamknij kartę i otwórz stronę ponownie. W razie potrzeby
+   wyczyść dane witryny dla GitHub Pages.
+
+Google Apps Script i Arkusz pozostają bez zmian.
 Nie uruchamiaj setup().
