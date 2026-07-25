@@ -524,3 +524,7 @@ textarea { resize:vertical; }
 @keyframes movievault-backup-spin {
   to { transform: rotate(360deg); }
 }
+
+/* MovieVault 3.3.0 */
+.optional-label { font-size: .72em; font-weight: 600; opacity: .62; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+.field-hint { display: block; margin-top: 7px; color: var(--muted, #9aa0af); line-height: 1.4; }

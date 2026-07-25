@@ -10,9 +10,9 @@
   <link rel="icon" href="movievault-icon-192.png?v=3.2.1" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=3.2.1">
   <meta name="apple-mobile-web-app-title" content="MovieVault">
-  <link rel="stylesheet" href="styles.css?v=3.2.0">
+  <link rel="stylesheet" href="styles.css?v=3.3.0">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.2.0" defer></script>
+  <script src="app.js?v=3.3.0" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
@@ -207,7 +207,7 @@
       <div class="form-layout">
         <div class="content-card">
           <div class="form-grid">
-            <label class="wide"><span>Kod kreskowy</span><div class="field-with-button"><input id="barcode" inputmode="numeric" placeholder="Kod EAN / UPC"><button id="scanButton" type="button">Skanuj</button></div></label>
+            <label class="wide"><span>Kod kreskowy <small class="optional-label">opcjonalnie</small></span><div class="field-with-button"><input id="barcode" inputmode="numeric" placeholder="Kod EAN / UPC lub zostaw puste"><button id="scanButton" type="button">Skanuj</button></div><small class="field-hint">Płyty bez kodu również możesz dodać. MovieVault nada im własny identyfikator.</small></label>
             <label class="wide"><span>Tytuł</span><div class="field-with-button"><input id="title" placeholder="Tytuł filmu"><button id="tmdbSearchButton" type="button">Znajdź w TMDb</button></div></label>
             <label><span>Format</span><select id="format"><option>DVD</option><option>Blu-ray</option><option>4K UHD</option><option>Steelbook</option><option>Box Set</option><option>VHS</option></select></label>
             <label><span>Rok</span><input id="year" inputmode="numeric" placeholder="2002"></label>
