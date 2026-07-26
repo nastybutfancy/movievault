@@ -303,22 +303,39 @@ async function createCollectionBackup(button) {
   }
 }
 
+function collectionSnapshot(movies) {
+  return JSON.stringify((Array.isArray(movies) ? movies : []).map(function (movie) {
+    const normalized = {};
+    Object.keys(movie || {}).sort().forEach(function (key) {
+      normalized[key] = movie[key];
+    });
+    return normalized;
+  }));
+}
+
 async function loadHomeDashboard(force) {
   const recentNode = safeElement("recentMovies");
   if (!recentNode) return;
 
   if (collectionCacheReady) {
     renderHomeDashboard();
+    renderStatsFromCollection();
   }
-
-  if (!force && collectionCacheIsFresh()) return;
 
   try {
     const response = await apiRequest("collection", { sort: "newest" });
-    collectionCache = Array.isArray(response.movies) ? response.movies : [];
+    const freshMovies = Array.isArray(response.movies) ? response.movies : [];
+    const collectionChanged = !collectionCacheReady || collectionSnapshot(collectionCache) !== collectionSnapshot(freshMovies);
+
+    collectionCache = freshMovies;
     persistCollectionCache();
-    renderHomeDashboard();
-    renderStatsFromCollection();
+
+    if (collectionChanged || force) {
+      renderHomeDashboard();
+      renderStatsFromCollection();
+      const collectionPanel = safeElement("collectionPanel");
+      if (collectionPanel && !collectionPanel.classList.contains("hidden")) renderCollection();
+    }
   } catch (error) {
     if (!collectionCacheReady) {
       recentNode.innerHTML = '<div class="loading-card">Nie udało się pobrać kolekcji.</div>';
