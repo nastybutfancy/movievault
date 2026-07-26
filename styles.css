@@ -548,3 +548,38 @@ textarea { resize:vertical; }
   .settings-icon { width: 44px; height: 44px; }
   .settings-card > button { grid-column: 1 / -1; width: 100%; }
 }
+
+/* MovieVault 3.5.0 Collector's Edition */
+.collector-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  margin: 0 0 22px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  background: rgba(12,17,31,.7);
+}
+.collector-filters > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.collector-filters > div > span { margin-right: 4px; color: var(--muted, #9aa4bd); font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.collector-filters button {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.collector-filters button.active { border-color: rgba(129,140,248,.75); background: rgba(99,102,241,.2); box-shadow: 0 0 0 2px rgba(99,102,241,.08); }
+.collector-filters .filter-clear { margin-left: auto; }
+#seasonCountField.hidden { display: none; }
+#wishlistPanel .collection-card .format-badge { background: rgba(236,72,153,.18); border-color: rgba(236,72,153,.35); }
+.settings-version strong { white-space: normal; }
+@media (max-width: 760px) {
+  .collector-filters { align-items: stretch; }
+  .collector-filters > div { width: 100%; }
+  .collector-filters .filter-clear { width: 100%; margin-left: 0; }
+  .mobile-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .mobile-nav button small { font-size: .62rem; }
+}

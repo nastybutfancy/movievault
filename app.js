@@ -1,5 +1,103 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.4.0";
+const APP_VERSION = "3.5.0";
+
+
+const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
+const COLLECTOR_META_SUFFIX = "]]";
+const CUSTOM_COVER_STORAGE_PREFIX = "movievault.custom-cover.";
+let activeItemFilters = new Set();
+let activeMediaFilters = new Set();
+
+function createUuid() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (character) {
+    const random = Math.random() * 16 | 0;
+    const value = character === "x" ? random : (random & 3 | 8);
+    return value.toString(16);
+  });
+}
+
+function parseCollectorNotes(rawNotes) {
+  const text = String(rawNotes || "");
+  const start = text.lastIndexOf(COLLECTOR_META_PREFIX);
+  if (start < 0 || !text.endsWith(COLLECTOR_META_SUFFIX)) return { notes: text, meta: {} };
+  const encoded = text.slice(start + COLLECTOR_META_PREFIX.length, -COLLECTOR_META_SUFFIX.length);
+  try {
+    return { notes: text.slice(0, start), meta: JSON.parse(decodeURIComponent(escape(atob(encoded)))) || {} };
+  } catch (error) {
+    console.warn("Nie udało się odczytać danych kolekcjonerskich:", error);
+    return { notes: text, meta: {} };
+  }
+}
+
+function normalizeMediaType(value) {
+  const normalized = normalizeFormat(value);
+  if (normalized.includes("vhs")) return "VHS";
+  if (normalized.includes("4k") || normalized.includes("uhd")) return "UHD Blu-ray";
+  if (normalized.includes("bluray") || normalized.includes("blu")) return "Blu-ray";
+  return "DVD";
+}
+
+function stableLegacyUuid(movie) {
+  const source = [normalizeBarcode(movie?.barcode), movie?.title, movie?.year, movie?.addedAt || movie?.dateAdded || movie?.date].join("|");
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) { hash ^= source.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return "legacy-" + (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function hydrateCollectorMovie(rawMovie) {
+  const movie = Object.assign({}, rawMovie || {});
+  const parsed = parseCollectorNotes(movie.notes);
+  const meta = parsed.meta || {};
+  movie.notes = parsed.notes;
+  movie.uuid = String(movie.uuid || meta.uuid || "").trim() || stableLegacyUuid(movie);
+  movie.itemType = movie.itemType || meta.itemType || "Film";
+  movie.mediaType = movie.mediaType || meta.mediaType || normalizeMediaType(movie.format);
+  movie.format = movie.mediaType;
+  movie.seasonCount = movie.seasonCount || meta.seasonCount || "";
+  movie.editionType = movie.editionType || meta.editionType || (/steelbook/i.test(rawMovie?.format || "") ? "Steelbook" : /box/i.test(rawMovie?.format || "") ? "Box" : "Standard");
+  movie.condition = movie.condition || meta.condition || "Bardzo dobry";
+  movie.location = movie.location || meta.location || movie.shelf || "";
+  movie.shelf = movie.location;
+  movie.ownershipStatus = movie.ownershipStatus || meta.ownershipStatus || "Posiadam";
+  movie.customCoverUrl = movie.customCoverUrl || meta.customCoverUrl || "";
+  movie.catalogBarcode = normalizeBarcode(movie.catalogBarcode || meta.catalogBarcode || movie.barcode);
+  return movie;
+}
+
+function hydrateCollection(movies) {
+  return (Array.isArray(movies) ? movies : []).map(hydrateCollectorMovie);
+}
+
+function prepareMovieForApi(movie) {
+  const copy = Object.assign({}, movie);
+  copy.uuid = String(copy.uuid || "").trim() || createUuid();
+  copy.itemType = copy.itemType || "Film";
+  copy.mediaType = copy.mediaType || normalizeMediaType(copy.format);
+  copy.format = copy.mediaType;
+  copy.seasonCount = copy.itemType === "Serial" ? String(copy.seasonCount || "").trim() : "";
+  copy.editionType = copy.editionType || "Standard";
+  copy.condition = copy.condition || "Bardzo dobry";
+  copy.location = copy.location || copy.shelf || "";
+  copy.shelf = copy.location;
+  copy.ownershipStatus = copy.ownershipStatus || "Posiadam";
+  copy.customCoverUrl = copy.customCoverUrl || "";
+  copy.catalogBarcode = normalizeBarcode(copy.catalogBarcode || copy.barcode);
+  copy.barcode = copy.catalogBarcode || normalizeBarcode(copy.barcode) || generateInternalBarcode();
+  copy.notes = String(copy.notes || "").trim();
+  delete copy.customCoverData;
+  return copy;
+}
+
+function movieKey(movie) { return String(movie?.uuid || normalizeBarcode(movie?.barcode)); }
+function findCollectorMovie(key) {
+  return collectionCache.find(function (movie) { return movieKey(movie) === String(key) || normalizeBarcode(movie.barcode) === normalizeBarcode(key); });
+}
+function effectivePoster(movie) {
+  const local = movie?.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) : "";
+  return local || movie?.customCoverUrl || moviePoster(movie || {});
+}
+function isOwned(movie) { return String(movie?.ownershipStatus || "Posiadam").toLowerCase() !== "wishlist"; }
 
 function safeElement(id) {
   return document.getElementById(id);
@@ -11,6 +109,7 @@ function showHome() {
     "scannerPanel",
     "resultPanel",
     "collectionPanel",
+    "wishlistPanel",
     "searchPanel",
     "settingsPanel",
     "addPanel"
@@ -30,6 +129,7 @@ function setActiveNavigation(section) {
   const selectors = {
     home: "[data-home]",
     collection: "#collectionButton, [data-mobile-collection]",
+    wishlist: "#wishlistButton, [data-mobile-wishlist]",
     add: "#addButton, [data-mobile-add]",
     scan: "[data-mobile-scan]",
     settings: "#settingsButton, [data-mobile-settings]"
@@ -65,6 +165,14 @@ function openCollectionWithFormat(format) {
   loadCollection();
 }
 
+function openWishlist() {
+  showOnly("wishlistPanel");
+  setActiveNavigation("wishlist");
+  renderWishlist();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  loadHomeDashboard();
+}
+
 function openSettings() {
   showOnly("settingsPanel");
   setActiveNavigation("settings");
@@ -85,13 +193,14 @@ function readBackupFile(file) {
 
 function normalizeBackupMovie(movie) {
   const copy = Object.assign({}, movie || {});
+  copy._backupHadUuid = Boolean(String(copy.uuid || "").trim());
   copy.barcode = normalizeBarcode(copy.barcode) || generateInternalBarcode();
   ["genres", "cast"].forEach(function (key) {
     if (Array.isArray(copy[key])) copy[key] = copy[key];
     else if (copy[key]) copy[key] = String(copy[key]).split(/[,|]/).map(function (item) { return item.trim(); }).filter(Boolean);
     else copy[key] = [];
   });
-  return copy;
+  return hydrateCollectorMovie(copy);
 }
 
 async function importCollectionBackup(file) {
@@ -110,32 +219,44 @@ async function importCollectionBackup(file) {
     }
 
     const currentResponse = await apiRequest("collection", { sort: "newest" });
-    const currentMovies = Array.isArray(currentResponse.movies) ? currentResponse.movies : [];
-    const existingBarcodes = new Set(currentMovies.map(function (movie) { return normalizeBarcode(movie.barcode); }).filter(Boolean));
+    const currentMovies = hydrateCollection(currentResponse.movies);
+    const existingUuids = new Set(currentMovies.map(function (movie) { return String(movie.uuid || "").trim(); }).filter(Boolean));
+    const legacyBarcodeMatches = new Map();
+    currentMovies.forEach(function (movie) {
+      const barcode = normalizeBarcode(movie.catalogBarcode || movie.barcode);
+      if (!barcode) return;
+      if (!legacyBarcodeMatches.has(barcode)) legacyBarcodeMatches.set(barcode, []);
+      legacyBarcodeMatches.get(barcode).push(movie);
+    });
     const imported = [];
 
     for (let index = 0; index < backup.movies.length; index += 1) {
       const movie = normalizeBackupMovie(backup.movies[index]);
       if (!String(movie.title || "").trim()) continue;
-      const barcode = normalizeBarcode(movie.barcode);
-      const exists = existingBarcodes.has(barcode);
-      const parameters = Object.assign({}, movie, {
-        barcode: barcode,
-        originalBarcode: exists ? barcode : ""
-      });
-      if (status) status.textContent = "Importuję film " + (index + 1) + " z " + backup.movies.length + ": " + (movie.title || "Bez tytułu");
-      await apiRequest(exists ? "update" : "add", parameters);
-      existingBarcodes.add(barcode);
+      let uuid = String(movie.uuid || "").trim() || createUuid();
+      if (!movie._backupHadUuid) {
+        const barcode = normalizeBarcode(movie.catalogBarcode || movie.barcode);
+        const matches = barcode ? (legacyBarcodeMatches.get(barcode) || []) : [];
+        if (matches.length === 1) uuid = matches[0].uuid;
+      }
+      delete movie._backupHadUuid;
+      movie.uuid = uuid;
+      const exists = existingUuids.has(uuid);
+      const parameters = Object.assign({}, movie, { uuid: uuid });
+      if (status) status.textContent = "Importuję pozycję " + (index + 1) + " z " + backup.movies.length + ": " + (movie.title || "Bez tytułu");
+      await apiRequest(exists ? "update" : "add", prepareMovieForApi(parameters));
+      existingUuids.add(uuid);
+      if (movie.customCoverData && movie.uuid) localStorage.setItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid, movie.customCoverData);
       imported.push(movie);
     }
 
     const refreshed = await apiRequest("collection", { sort: "newest" });
-    collectionCache = Array.isArray(refreshed.movies) ? refreshed.movies : imported;
+    collectionCache = Array.isArray(refreshed.movies) ? hydrateCollection(refreshed.movies) : hydrateCollection(imported);
     persistCollectionCache();
     renderHomeDashboard();
     renderStatsFromCollection();
     if (safeElement("collectionPanel") && !safeElement("collectionPanel").classList.contains("hidden")) renderCollection();
-    if (status) status.textContent = "Gotowe. Zaimportowano " + imported.length + " filmów. Dane w Arkuszu Google zostały zaktualizowane.";
+    if (status) status.textContent = "Gotowe. Zaimportowano " + imported.length + " pozycji. Dane w Arkuszu Google zostały zaktualizowane.";
   } catch (error) {
     console.error("Import kopii:", error);
     if (status) status.textContent = "Błąd: " + error.message;
@@ -236,7 +357,9 @@ async function createCollectionBackup(button) {
     }
 
     const response = await apiRequest("collection", { sort: "newest" });
-    const movies = Array.isArray(response.movies) ? response.movies : [];
+    const movies = hydrateCollection(response.movies).map(function (movie) {
+      return Object.assign({}, movie, { customCoverData: movie.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) || "" : "" });
+    });
 
     const createdAt = new Date();
     const backup = {
@@ -256,7 +379,7 @@ async function createCollectionBackup(button) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "MovieVault_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.download = "MovieVault_3.5.0_Backup_" + backupDateStamp(createdAt) + ".json";
     link.style.display = "none";
 
     document.body.appendChild(link);
@@ -267,7 +390,7 @@ async function createCollectionBackup(button) {
       URL.revokeObjectURL(url);
     }, 1000);
 
-    collectionCache = movies;
+    collectionCache = hydrateCollection(movies);
     persistCollectionCache();
     renderHomeDashboard();
     renderStatsFromCollection();
@@ -324,7 +447,7 @@ async function loadHomeDashboard(force) {
 
   try {
     const response = await apiRequest("collection", { sort: "newest" });
-    const freshMovies = Array.isArray(response.movies) ? response.movies : [];
+    const freshMovies = hydrateCollection(response.movies);
     const collectionChanged = !collectionCacheReady || collectionSnapshot(collectionCache) !== collectionSnapshot(freshMovies);
 
     collectionCache = freshMovies;
@@ -335,6 +458,8 @@ async function loadHomeDashboard(force) {
       renderStatsFromCollection();
       const collectionPanel = safeElement("collectionPanel");
       if (collectionPanel && !collectionPanel.classList.contains("hidden")) renderCollection();
+      const wishlistPanel = safeElement("wishlistPanel");
+      if (wishlistPanel && !wishlistPanel.classList.contains("hidden")) renderWishlist();
     }
   } catch (error) {
     if (!collectionCacheReady) {
@@ -355,6 +480,7 @@ function renderRecentMovies() {
   if (!node) return;
 
   const recent = collectionCache
+    .filter(isOwned)
     .slice()
     .sort(function (a, b) { return getAddedTimestamp(b) - getAddedTimestamp(a); })
     .slice(0, 8);
@@ -365,7 +491,7 @@ function renderRecentMovies() {
   }
 
   node.innerHTML = recent.map(function (movie, index) {
-    const poster = moviePoster(movie);
+    const poster = effectivePoster(movie);
     const art = poster
       ? '<img src="' + escapeHtml(poster) + '" alt="" loading="lazy">'
       : '<div class="poster-placeholder">▥</div>';
@@ -374,7 +500,7 @@ function renderRecentMovies() {
         <span class="poster-art">${art}</span>
         <span class="poster-meta">
           <strong>${escapeHtml(movie.title || "Bez tytułu")}</strong>
-          <small><span>${escapeHtml(movie.year || "—")}</span><span class="format-pill">${escapeHtml(movie.format || "Film")}</span></small>
+          <small><span>${escapeHtml(movie.year || "—")}</span><span class="format-pill">${escapeHtml((movie.itemType || "Film") + " • " + (movie.mediaType || movie.format || "DVD"))}</span></small>
         </span>
       </button>
     `;
@@ -385,47 +511,33 @@ function renderRecentMovies() {
 
 function renderHomeFormatCounts() {
   const counts = { dvd: 0, bluray: 0, uhd: 0, steelbook: 0, boxset: 0, vhs: 0 };
-  collectionCache.forEach(function (movie) {
-    const format = normalizeFormat(movie.format);
-    if (format.includes("steelbook")) counts.steelbook++;
-    else if (format.includes("boxset") || format.includes("box")) counts.boxset++;
-    else if (format.includes("vhs")) counts.vhs++;
-    else if (format.includes("4k") || format.includes("uhd")) counts.uhd++;
-    else if (format.includes("bluray") || format.includes("blu")) counts.bluray++;
-    else if (format.includes("dvd")) counts.dvd++;
+  collectionCache.filter(isOwned).forEach(function (movie) {
+    const media = normalizeMediaType(movie.mediaType || movie.format);
+    if (media === "VHS") counts.vhs++; else if (media === "UHD Blu-ray") counts.uhd++; else if (media === "Blu-ray") counts.bluray++; else counts.dvd++;
+    if (/steelbook/i.test(movie.editionType || "")) counts.steelbook++;
+    if (/box/i.test(movie.editionType || "")) counts.boxset++;
   });
-
-  const map = {
-    homeDvd: counts.dvd,
-    homeBluray: counts.bluray,
-    homeUhd: counts.uhd,
-    homeSteelbook: counts.steelbook,
-    homeBoxset: counts.boxset,
-    homeVhs: counts.vhs,
-    homeTotal: collectionCache.length
-  };
-  Object.keys(map).forEach(function (id) {
-    const node = safeElement(id);
-    if (node) node.textContent = map[id];
-  });
+  const map = { homeDvd:counts.dvd, homeBluray:counts.bluray, homeUhd:counts.uhd, homeSteelbook:counts.steelbook, homeBoxset:counts.boxset, homeVhs:counts.vhs };
+  Object.keys(map).forEach(function(id){ const node=safeElement(id); if(node) node.textContent=map[id]; });
 }
 
 function renderCollectorStats() {
-  const years = collectionCache
+  const ownedCollection = collectionCache.filter(isOwned);
+  const years = ownedCollection
     .map(function (movie) { return Number(movie.year); })
     .filter(function (year) { return year > 1800 && year < 2200; });
 
   const oldestYear = years.length ? Math.min.apply(null, years) : null;
   const newestYear = years.length ? Math.max.apply(null, years) : null;
-  const oldestMovie = collectionCache.find(function (movie) { return Number(movie.year) === oldestYear; });
-  const newestMovie = collectionCache.find(function (movie) { return Number(movie.year) === newestYear; });
+  const oldestMovie = ownedCollection.find(function (movie) { return Number(movie.year) === oldestYear; });
+  const newestMovie = ownedCollection.find(function (movie) { return Number(movie.year) === newestYear; });
 
   setText("oldestYear", oldestYear || "—");
   setText("newestYear", newestYear || "—");
   setText("oldestTitle", oldestMovie?.title || "Brak danych");
   setText("newestTitle", newestMovie?.title || "Brak danych");
 
-  const ratings = collectionCache.map(getMovieRating).filter(function (rating) { return rating > 0; });
+  const ratings = ownedCollection.map(getMovieRating).filter(function (rating) { return rating > 0; });
   const average = ratings.length ? (ratings.reduce(function (sum, item) { return sum + item; }, 0) / ratings.length).toFixed(1) : "—";
   setText("averageRating", average === "—" ? average : "★ " + average);
 
@@ -469,7 +581,7 @@ function showMovieSnapshot(movie) {
   const modal = safeElement("randomModal");
   const content = safeElement("randomMovieContent");
   if (!modal || !content) return;
-  const poster = moviePoster(movie);
+  const poster = effectivePoster(movie);
   content.innerHTML = `
     <div class="random-movie">
       ${poster ? '<img src="' + escapeHtml(poster) + '" alt="">' : '<div class="random-placeholder">▥</div>'}
@@ -512,6 +624,7 @@ function setupCollectorExperience() {
   document.querySelectorAll("[data-mobile-scan]").forEach(function (button) {
     button.addEventListener("click", openScannerFromHome);
   });
+  document.querySelectorAll("[data-mobile-wishlist]").forEach(function (button) { button.addEventListener("click", openWishlist); });
   document.querySelectorAll("[data-mobile-settings]").forEach(function (button) {
     button.addEventListener("click", openSettings);
   });
@@ -571,6 +684,7 @@ let collectionCache = [];
 let collectionCacheReady = false;
 let collectionCacheSavedAt = 0;
 let editingBarcode = "";
+let editingUuid = "";
 
 const COLLECTION_STORAGE_KEY = "movievault.collection.v1";
 const COLLECTION_CACHE_MAX_AGE = 5 * 60 * 1000;
@@ -579,7 +693,7 @@ function restoreCollectionCache() {
   try {
     const saved = JSON.parse(localStorage.getItem(COLLECTION_STORAGE_KEY) || "null");
     if (!saved || !Array.isArray(saved.movies)) return false;
-    collectionCache = saved.movies;
+    collectionCache = hydrateCollection(saved.movies);
     collectionCacheSavedAt = Number(saved.savedAt) || 0;
     collectionCacheReady = true;
     return true;
@@ -595,7 +709,7 @@ function persistCollectionCache() {
   try {
     localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify({
       savedAt: collectionCacheSavedAt,
-      movies: collectionCache
+      movies: collectionCache.map(function (movie) { return Object.assign({}, movie, { customCoverData: movie.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) || "" : "" }); })
     }));
   } catch (error) {
     console.warn("Nie udało się zapisać lokalnej kolekcji:", error);
@@ -650,6 +764,14 @@ document.addEventListener(
       "click",
       openCollection
     );
+
+    $("wishlistButton").addEventListener("click", openWishlist);
+    $("refreshWishlistButton").addEventListener("click", function () { loadCollection(true).then(renderWishlist); });
+    $("wishlistFilter").addEventListener("input", renderWishlist);
+    $("itemType").addEventListener("change", syncSeasonField);
+    $("customCoverFile").addEventListener("change", handleCustomCoverFile);
+    $("clearCollectorFilters").addEventListener("click", clearCollectorFilters);
+    document.querySelectorAll("[data-item-filter], [data-media-filter]").forEach(function (button) { button.addEventListener("click", toggleCollectorFilter); });
 
     $("refreshCollectionButton").addEventListener(
       "click",
@@ -834,6 +956,7 @@ function showOnly(panelId) {
     "scannerPanel",
     "resultPanel",
     "collectionPanel",
+    "wishlistPanel",
     "searchPanel",
     "settingsPanel",
     "addPanel"
@@ -868,7 +991,7 @@ async function loadCollection(force) {
 
   try {
     const response = await apiRequest("collection", { sort: "newest" });
-    collectionCache = Array.isArray(response.movies) ? response.movies : [];
+    collectionCache = hydrateCollection(response.movies);
     persistCollectionCache();
     renderCollection();
     renderHomeDashboard();
@@ -898,17 +1021,14 @@ function renderCollection() {
   const visibleMovies =
     sortedMovies.filter(
       function (movie) {
-        if (!filter) {
-          return true;
-        }
-
+        if (!isOwned(movie)) return false;
+        const matchesItem = !activeItemFilters.size || activeItemFilters.has(movie.itemType || "Film");
+        const matchesMedia = !activeMediaFilters.size || activeMediaFilters.has(movie.mediaType || normalizeMediaType(movie.format));
+        if (!matchesItem || !matchesMedia) return false;
+        if (!filter) return true;
         const searchableText = [
-          movie.title,
-          movie.year,
-          movie.format,
-          movie.shelf,
-          movie.barcode,
-          movie.notes
+          movie.title, movie.originalTitle, movie.year, movie.itemType, movie.mediaType, movie.editionType, movie.condition,
+          movie.location, movie.shelf, movie.barcode, movie.catalogBarcode, movie.notes
         ]
           .join(" ")
           .toLowerCase();
@@ -920,16 +1040,16 @@ function renderCollection() {
     );
 
   $("collectionCount").textContent =
-    filter
+    (filter || activeItemFilters.size || activeMediaFilters.size)
       ? (
           "Znaleziono: " +
           visibleMovies.length +
           " z " +
-          collectionCache.length
+          collectionCache.filter(isOwned).length
         )
       : (
-          "Liczba filmów: " +
-          collectionCache.length
+          "Liczba pozycji: " +
+          collectionCache.filter(isOwned).length
         );
 
   if (!visibleMovies.length) {
@@ -969,11 +1089,12 @@ function renderCollection() {
 function collectionMovieCard(movie) {
   const formatClass = getFormatClass(movie.format);
   const year = movie.year ? escapeHtml(movie.year) : "—";
-  const cover = movie.poster
-    ? `<img class="collection-cover" src="${escapeHtml(movie.poster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
+  const activePoster = effectivePoster(movie);
+  const cover = activePoster
+    ? `<img class="collection-cover" src="${escapeHtml(activePoster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
     : `<div class="collection-cover-placeholder">🎬</div>`;
 
-  const barcode = normalizeBarcode(movie.barcode);
+  const barcode = movieKey(movie);
 
   return `
     <button class="collection-card" type="button" onclick="openCollectionMovie('${escapeHtml(barcode)}')">
@@ -981,7 +1102,7 @@ function collectionMovieCard(movie) {
       <div class="collection-main-info">
         <h3>${escapeHtml(movie.title || "Bez tytułu")}</h3>
         <div class="collection-badges">
-          <span class="format-badge ${formatClass}">${escapeHtml(movie.format || "Film")}</span>
+          <span class="format-badge ${formatClass}">${escapeHtml((movie.itemType || "Film") + " • " + (movie.mediaType || movie.format || "DVD"))}</span>
           <span class="year-badge">${year}</span>
         </div>
       </div>
@@ -991,16 +1112,14 @@ function collectionMovieCard(movie) {
 
 
 function openCollectionMovie(barcode) {
-  const normalized = normalizeBarcode(barcode);
-  const movie = collectionCache.find(function (item) {
-    return normalizeBarcode(item.barcode) === normalized;
-  });
+  const normalized = String(barcode);
+  const movie = findCollectorMovie(normalized);
 
   if (!movie) {
     return;
   }
 
-  const poster = moviePoster(movie);
+  const poster = effectivePoster(movie);
   const genres = Array.isArray(movie.genres)
     ? movie.genres
     : String(movie.genres || movie.genre || "")
@@ -1017,9 +1136,14 @@ function openCollectionMovie(barcode) {
 
   const facts = [
     movie.year ? "<span>" + escapeHtml(movie.year) + "</span>" : "",
-    movie.format ? "<span>" + escapeHtml(movie.format) + "</span>" : "",
+    movie.itemType ? "<span>" + escapeHtml(movie.itemType) + "</span>" : "",
+    movie.mediaType ? "<span>" + escapeHtml(movie.mediaType) + "</span>" : "",
+    movie.editionType ? "<span>" + escapeHtml(movie.editionType) + "</span>" : "",
+    movie.condition ? "<span>Stan: " + escapeHtml(movie.condition) + "</span>" : "",
+    movie.seasonCount ? "<span>Sezony: " + escapeHtml(movie.seasonCount) + "</span>" : "",
     movie.runtime ? "<span>" + escapeHtml(String(movie.runtime)) + " min</span>" : "",
-    movie.shelf ? "<span>Półka: " + escapeHtml(movie.shelf) + "</span>" : ""
+    movie.location ? "<span>Lokalizacja: " + escapeHtml(movie.location) + "</span>" : "",
+    movie.ownershipStatus ? "<span>" + escapeHtml(movie.ownershipStatus) + "</span>" : ""
   ].filter(Boolean).join("");
 
   $("movieDetailsContent").innerHTML = `
@@ -1061,8 +1185,8 @@ function openCollectionMovie(barcode) {
           : ""}
 
         <div class="movie-details-actions">
-          <button class="primary-button" type="button" onclick="editCollectionMovie('${escapeHtml(normalized)}')">Edytuj</button>
-          <button class="danger-button" type="button" onclick="deleteCollectionMovie('${escapeHtml(normalized)}')">Usuń</button>
+          <button class="primary-button" type="button" onclick="editCollectionMovie('${escapeHtml(movieKey(movie))}')">Edytuj</button>
+          <button class="danger-button" type="button" onclick="deleteCollectionMovie('${escapeHtml(movieKey(movie))}')">Usuń</button>
         </div>
       </div>
     </div>
@@ -1078,26 +1202,37 @@ function closeMovieDetails() {
 }
 
 function editCollectionMovie(barcode) {
-  const normalized = normalizeBarcode(barcode);
-  const movie = collectionCache.find(function (item) {
-    return normalizeBarcode(item.barcode) === normalized;
-  });
+  const normalized = String(barcode);
+  const movie = findCollectorMovie(normalized);
 
   if (!movie) {
     return;
   }
 
-  editingBarcode = normalized;
+  editingUuid = String(movie.uuid || "");
+  editingBarcode = normalizeBarcode(movie.barcode);
+  window.movieVaultPendingCustomCover = "";
   closeMovieDetails();
   showOnly("addPanel");
 
   resetTmdbSelection();
 
-  $("barcode").value = normalized;
+  $("barcode").value = movie.catalogBarcode || movie.barcode || "";
   $("title").value = movie.title || "";
-  $("format").value = movie.format || "DVD";
+  $("itemType").value = movie.itemType || "Film";
+  $("format").value = movie.mediaType || normalizeMediaType(movie.format);
+  $("seasonCount").value = movie.seasonCount || "";
+  $("editionType").value = movie.editionType || "Standard";
+  $("condition").value = movie.condition || "Bardzo dobry";
+  $("ownershipStatus").value = movie.ownershipStatus || "Posiadam";
+  $("customCoverUrl").value = movie.customCoverUrl || "";
+  $("customCoverFile").value = "";
+  syncSeasonField();
   $("year").value = movie.year || "";
-  $("shelf").value = movie.shelf || "";
+  if ($("itemType").value === "Serial" && movie.seasonCount) {
+    $("seasonCount").value = movie.seasonCount;
+  }
+  $("shelf").value = movie.location || movie.shelf || "";
   $("notes").value = movie.notes || "";
 
   selectedTmdbMovie = {
@@ -1121,10 +1256,8 @@ function editCollectionMovie(barcode) {
 }
 
 async function deleteCollectionMovie(barcode) {
-  const normalized = normalizeBarcode(barcode);
-  const movie = collectionCache.find(function (item) {
-    return normalizeBarcode(item.barcode) === normalized;
-  });
+  const normalized = String(barcode);
+  const movie = findCollectorMovie(normalized);
 
   if (!movie) {
     return;
@@ -1139,9 +1272,9 @@ async function deleteCollectionMovie(barcode) {
   }
 
   try {
-    await apiRequest("delete", { barcode: normalized });
+    await apiRequest("delete", { uuid: movie.uuid, barcode: normalizeBarcode(movie.barcode) });
     collectionCache = collectionCache.filter(function (item) {
-      return normalizeBarcode(item.barcode) !== normalized;
+      return movieKey(item) !== movieKey(movie);
     });
     persistCollectionCache();
     closeMovieDetails();
@@ -1336,7 +1469,7 @@ async function handleBarcode(barcode) {
 
     if (collectionCacheReady) {
       const localMovie = collectionCache.find(function (movie) {
-        return normalizeBarcode(movie.barcode) === barcode;
+        return normalizeBarcode(movie.catalogBarcode || movie.barcode) === barcode;
       });
       renderScanResult(barcode, localMovie || null);
       return;
@@ -1384,7 +1517,7 @@ function renderScanResult(
 
     $("resultPanel").innerHTML = `
       <div class="result-title">
-        🟥 JUŻ POSIADASZ
+        🟨 MASZ JUŻ EGZEMPLARZ
       </div>
 
       <strong>
@@ -1394,7 +1527,7 @@ function renderScanResult(
       <br>
 
       ${escapeHtml(
-        movie.format || ""
+        (movie.itemType || "Film") + " • " + (movie.mediaType || movie.format || "DVD")
       )}
 
       <br>
@@ -1417,6 +1550,8 @@ function renderScanResult(
       ${escapeHtml(movie.barcode)}
 
       <br><br>
+
+      <button class="button add" onclick="prepareAdd('${barcode}')">Dodaj kolejny egzemplarz</button>
 
       <button
         class="button collection"
@@ -1469,10 +1604,15 @@ function renderScanResult(
 
 function prepareAdd(barcode) {
   editingBarcode = "";
+  editingUuid = "";
+  window.movieVaultPendingCustomCover = "";
   showOnly("addPanel");
 
   resetTmdbSelection();
-  $("saveButton").textContent = "Zapisz film";
+  $("saveButton").textContent = "Zapisz pozycję";
+  $("itemType").value = "Film"; $("format").value = "DVD"; $("seasonCount").value = "";
+  $("editionType").value = "Standard"; $("condition").value = "Bardzo dobry"; $("ownershipStatus").value = "Posiadam";
+  $("customCoverUrl").value = ""; $("customCoverFile").value = ""; syncSeasonField();
 
   $("barcode").value =
     normalizeBarcode(barcode);
@@ -1518,7 +1658,8 @@ async function searchTmdb() {
         "tmdbSearch",
         {
           query: title,
-          year: year
+          year: year,
+          itemType: $("itemType").value
         }
       );
 
@@ -1646,7 +1787,8 @@ async function selectTmdbMovie(index) {
       await apiRequest(
         "tmdbMovie",
         {
-          id: selected.tmdbId
+          id: selected.tmdbId,
+          itemType: $("itemType").value
         }
       );
 
@@ -1758,10 +1900,20 @@ function resetTmdbSelection() {
 
 async function addMovie() {
  const enteredBarcode = normalizeBarcode($("barcode").value);
+ const existingEditing = editingUuid ? collectionCache.find(function (item) { return String(item.uuid || "") === editingUuid; }) : null;
  const movie = {
-  barcode: enteredBarcode || (editingBarcode || generateInternalBarcode()),
-
+  uuid: existingEditing?.uuid || createUuid(),
+  catalogBarcode: enteredBarcode,
+  barcode: enteredBarcode || existingEditing?.barcode || generateInternalBarcode(),
   originalBarcode: editingBarcode || "",
+  itemType: $("itemType").value,
+  mediaType: $("format").value,
+  seasonCount: $("itemType").value === "Serial" ? $("seasonCount").value.trim() : "",
+  editionType: $("editionType").value,
+  condition: $("condition").value,
+  ownershipStatus: $("ownershipStatus").value,
+  customCoverUrl: $("customCoverUrl").value.trim(),
+  location: $("shelf").value.trim(),
 
   title:
     $("title").value.trim(),
@@ -1835,7 +1987,7 @@ async function addMovie() {
 };
 
   if (!movie.title) {
-    alert("Podaj tytuł filmu.");
+    alert("Podaj tytuł pozycji.");
     $("title").focus();
     return;
   }
@@ -1849,26 +2001,19 @@ async function addMovie() {
     "Zapisywanie...";
 
   try {
-    const action = editingBarcode ? "update" : "add";
+    const action = editingUuid ? "update" : "add";
 
     const result =
       await apiRequest(
         action,
-        movie
+        prepareMovieForApi(movie)
       );
 
-    if (!editingBarcode && result.duplicate) {
-      alert(
-        "Ten film jest już w kolekcji."
-      );
-
-      return;
-    }
 
     [
       "barcode",
       "title",
-      "year",
+      "year", "seasonCount", "customCoverUrl",
       "shelf",
       "notes"
     ].forEach(
@@ -1880,15 +2025,14 @@ async function addMovie() {
     const savedMovie = Object.assign({}, movie, {
       addedAt: action === "update"
         ? ((collectionCache.find(function (item) {
-            return normalizeBarcode(item.barcode) === normalizeBarcode(movie.originalBarcode);
+            return String(item.uuid || "") === String(movie.uuid || "");
           }) || {}).addedAt || new Date().toISOString())
         : new Date().toISOString()
     });
 
     if (action === "update") {
-      const original = normalizeBarcode(movie.originalBarcode);
       const index = collectionCache.findIndex(function (item) {
-        return normalizeBarcode(item.barcode) === original;
+        return String(item.uuid || "") === String(movie.uuid || "");
       });
       if (index >= 0) collectionCache[index] = savedMovie;
       else collectionCache.unshift(savedMovie);
@@ -1896,18 +2040,21 @@ async function addMovie() {
       collectionCache.unshift(savedMovie);
     }
 
+    const pendingCover = window.movieVaultPendingCustomCover;
+    if (pendingCover) { localStorage.setItem(CUSTOM_COVER_STORAGE_PREFIX + savedMovie.uuid, pendingCover); window.movieVaultPendingCustomCover = ""; }
     persistCollectionCache();
     renderHomeDashboard();
     renderStatsFromCollection();
 
     resetTmdbSelection();
     editingBarcode = "";
-    $("saveButton").textContent = "Zapisz film";
+    editingUuid = "";
+    $("saveButton").textContent = "Zapisz pozycję";
 
     alert(
       action === "update"
         ? "Zmiany zostały zapisane."
-        : "Film został zapisany w Arkuszu Google."
+        : "Pozycja została zapisana w Arkuszu Google."
     );
 
     showOnly("resultPanel");
@@ -1917,7 +2064,7 @@ async function addMovie() {
 
     $("resultPanel").innerHTML = `
       <div class="result-title">
-        ✅ FILM ZAPISANY
+        ✅ POZYCJA ZAPISANA
       </div>
 
       <button
@@ -1943,54 +2090,34 @@ async function addMovie() {
     button.disabled = false;
 
     button.textContent =
-      "Zapisz film";
+      "Zapisz pozycję";
   }
 }
 
 async function runSearch() {
-  const query =
-    $("searchQuery")
-      .value
-      .trim();
-
-  if (!query) {
-    return;
-  }
-
-  $("searchResults").innerHTML = `
-    <div class="movie">
-      Szukanie...
-    </div>
-  `;
-
+  const query = $("searchQuery").value.trim();
+  if (!query) return;
+  $("searchResults").innerHTML = '<div class="movie">Szukanie...</div>';
   try {
-    const response =
-      await apiRequest(
-        "search",
-        {
-          query: query
-        }
-      );
-
-    const found =
-      response.movies || [];
-
-    $("searchResults").innerHTML =
-      found.length
-        ? found
-            .map(movieCard)
-            .join("")
-        : `
-          <div class="movie">
-            Nic nie znaleziono.
-          </div>
-        `;
+    if (!collectionCacheReady) await loadCollection(true);
+    const needle = query.toLowerCase();
+    const localFound = collectionCache.filter(function (movie) {
+      return [movie.title, movie.originalTitle, movie.notes, movie.location, movie.shelf, movie.editionType, movie.condition, movie.itemType, movie.mediaType, movie.catalogBarcode, movie.barcode]
+        .join(" ").toLowerCase().includes(needle);
+    });
+    let remoteFound = [];
+    try {
+      const response = await apiRequest("search", { query: query });
+      remoteFound = hydrateCollection(response.movies);
+    } catch (remoteError) {
+      console.warn("Wyszukiwanie serwerowe niedostępne, używam lokalnej kolekcji:", remoteError);
+    }
+    const merged = new Map();
+    localFound.concat(remoteFound).forEach(function (movie) { merged.set(movieKey(movie), movie); });
+    const found = Array.from(merged.values());
+    $("searchResults").innerHTML = found.length ? found.map(movieCard).join("") : '<div class="movie">Nic nie znaleziono.</div>';
   } catch (error) {
-    $("searchResults").innerHTML = `
-      <div class="movie owned">
-        ${escapeHtml(error.message)}
-      </div>
-    `;
+    $("searchResults").innerHTML = '<div class="movie owned">' + escapeHtml(error.message) + '</div>';
   }
 }
 
@@ -2030,22 +2157,53 @@ function movieCard(movie) {
 }
 
 function renderStatsFromCollection() {
-  const counts = { dvd: 0, bluray: 0, uhd: 0 };
-  collectionCache.forEach(function (movie) {
-    const format = normalizeFormat(movie.format);
-    if (format.includes("4k") || format.includes("uhd")) counts.uhd++;
-    else if (format.includes("bluray") || format.includes("blu")) counts.bluray++;
-    else if (format.includes("dvd")) counts.dvd++;
+  const owned = collectionCache.filter(isOwned);
+  const wishlist = collectionCache.filter(function (movie) { return !isOwned(movie); });
+  const counts = { movie: { dvd:0, bluray:0, uhd:0, vhs:0 }, series: { dvd:0, bluray:0, uhd:0, vhs:0 } };
+  owned.forEach(function (movie) {
+    const group = String(movie.itemType || "Film").toLowerCase() === "serial" ? counts.series : counts.movie;
+    const media = normalizeMediaType(movie.mediaType || movie.format);
+    if (media === "DVD") group.dvd++; else if (media === "Blu-ray") group.bluray++; else if (media === "UHD Blu-ray") group.uhd++; else if (media === "VHS") group.vhs++;
   });
+  const movieTotal = Object.values(counts.movie).reduce(function(a,b){return a+b;},0);
+  const seriesTotal = Object.values(counts.series).reduce(function(a,b){return a+b;},0);
+  setText("dvd", counts.movie.dvd + counts.series.dvd); setText("bluray", counts.movie.bluray + counts.series.bluray); setText("uhd", counts.movie.uhd + counts.series.uhd); setText("total", owned.length);
+  setText("homeMovieTotal", movieTotal); setText("homeSeriesTotal", seriesTotal); setText("homeTotal", owned.length + wishlist.length); setText("homeOwned", owned.length); setText("homeWishlist", wishlist.length);
+  setText("homeMovieMedia", "DVD " + counts.movie.dvd + " • Blu-ray " + counts.movie.bluray + " • UHD " + counts.movie.uhd + " • VHS " + counts.movie.vhs);
+  setText("homeSeriesMedia", "DVD " + counts.series.dvd + " • Blu-ray " + counts.series.bluray + " • UHD " + counts.series.uhd);
+}
 
-  setText("dvd", counts.dvd);
-  setText("bluray", counts.bluray);
-  setText("uhd", counts.uhd);
-  setText("total", collectionCache.length);
-  setText("homeDvd", counts.dvd);
-  setText("homeBluray", counts.bluray);
-  setText("homeUhd", counts.uhd);
-  setText("homeTotal", collectionCache.length);
+function syncSeasonField() {
+  const field = safeElement("seasonCountField");
+  if (field) field.classList.toggle("hidden", safeElement("itemType")?.value !== "Serial");
+}
+function toggleCollectorFilter(event) {
+  const button = event.currentTarget;
+  const set = button.dataset.itemFilter ? activeItemFilters : activeMediaFilters;
+  const value = button.dataset.itemFilter || button.dataset.mediaFilter;
+  if (set.has(value)) set.delete(value); else set.add(value);
+  button.classList.toggle("active", set.has(value));
+  renderCollection();
+}
+function clearCollectorFilters() {
+  activeItemFilters.clear(); activeMediaFilters.clear();
+  document.querySelectorAll("[data-item-filter], [data-media-filter]").forEach(function(button){button.classList.remove("active");});
+  renderCollection();
+}
+function renderWishlist() {
+  const needle = String(safeElement("wishlistFilter")?.value || "").trim().toLowerCase();
+  const movies = collectionCache.filter(function(movie){
+    if (isOwned(movie)) return false;
+    return [movie.title,movie.notes,movie.location,movie.editionType,movie.mediaType].join(" ").toLowerCase().includes(needle);
+  });
+  setText("wishlistCount", movies.length + " pozycji");
+  const node=safeElement("wishlistResults"); if(!node) return;
+  node.innerHTML = movies.length ? movies.map(collectionMovieCard).join("") : '<div class="empty-collection"><div class="empty-collection-icon">♡</div><strong>Wishlist jest pusta</strong><p>Dodaj pozycję ze statusem Wishlist.</p></div>';
+}
+function handleCustomCoverFile(event) {
+  const file = event.target.files && event.target.files[0]; if(!file) { window.movieVaultPendingCustomCover=""; return; }
+  if(!file.type.startsWith("image/")) { alert("Wybierz plik obrazu."); return; }
+  const reader=new FileReader(); reader.onload=function(){ window.movieVaultPendingCustomCover=String(reader.result||""); }; reader.readAsDataURL(file);
 }
 
 async function updateStats() {

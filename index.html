@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#080b16">
   <meta name="description" content="MovieVault — cyfrowe archiwum fizycznej kolekcji filmów.">
   <title>MovieVault</title>
-  <link rel="manifest" href="manifest.webmanifest?v=3.4.0">
-  <link rel="icon" href="movievault-icon-192.png?v=3.4.0" type="image/png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=3.4.0">
+  <link rel="manifest" href="manifest.webmanifest?v=3.5.0-db1">
+  <link rel="icon" href="movievault-icon-192.png?v=3.5.0-db1" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=3.5.0-db1">
   <meta name="apple-mobile-web-app-title" content="MovieVault">
-  <link rel="stylesheet" href="styles.css?v=3.4.0">
+  <link rel="stylesheet" href="styles.css?v=3.5.0-db1">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.4.0-sync1" defer></script>
+  <script src="app.js?v=3.5.0-db1" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div>
@@ -26,6 +26,7 @@
     <nav class="desktop-nav" aria-label="Główna nawigacja">
       <button class="nav-link active" type="button" data-home>Home</button>
       <button class="nav-link" id="collectionButton" type="button">Kolekcja</button>
+      <button class="nav-link" id="wishlistButton" type="button">Wishlist</button>
       <button class="nav-link" id="addButton" type="button">Dodaj</button>
       <button class="nav-link" id="settingsButton" type="button">Ustawienia</button>
       <button class="icon-button" id="searchButton" type="button" aria-label="Szukaj">⌕</button>
@@ -111,8 +112,8 @@
           <button class="shelf-card" type="button" data-format="Blu-ray">
             <span class="format-symbol bluray">◒</span><strong>Blu-ray</strong><b id="homeBluray">0</b><small>filmów</small>
           </button>
-          <button class="shelf-card" type="button" data-format="4K UHD">
-            <span class="format-symbol uhd">4K</span><strong>4K UHD</strong><b id="homeUhd">0</b><small>filmów</small>
+          <button class="shelf-card" type="button" data-format="UHD Blu-ray">
+            <span class="format-symbol uhd">4K</span><strong>UHD Blu-ray</strong><b id="homeUhd">0</b><small>filmów</small>
           </button>
           <button class="shelf-card" type="button" data-format="Steelbook">
             <span class="format-symbol steelbook">▣</span><strong>Steelbook</strong><b id="homeSteelbook">0</b><small>filmów</small>
@@ -145,7 +146,9 @@
           <h2><span>▥</span> Twoja kolekcja w liczbach</h2>
         </div>
         <div class="stats-grid collector-stats">
-          <article><small>Łącznie filmów</small><strong id="homeTotal">0</strong><span>Twoje archiwum</span></article>
+          <article><small>Filmy</small><strong id="homeMovieTotal">0</strong><span id="homeMovieMedia">DVD 0 • Blu-ray 0 • UHD 0 • VHS 0</span></article>
+          <article><small>Seriale</small><strong id="homeSeriesTotal">0</strong><span id="homeSeriesMedia">DVD 0 • Blu-ray 0 • UHD 0</span></article>
+          <article><small>Wszystkie pozycje</small><strong id="homeTotal">0</strong><span>Posiadam: <b id="homeOwned">0</b> • Wishlist: <b id="homeWishlist">0</b></span></article>
           <article><small>Najstarszy film</small><strong id="oldestYear">—</strong><span id="oldestTitle">Brak danych</span></article>
           <article><small>Najnowszy film</small><strong id="newestYear">—</strong><span id="newestTitle">Brak danych</span></article>
           <article><small>Średnia ocena</small><strong id="averageRating">—</strong><span>TMDb</span></article>
@@ -174,7 +177,7 @@
         <button id="refreshCollectionButton" class="secondary-button" type="button">Odśwież</button>
       </div>
       <div class="collection-toolbar">
-        <label><span>Szukaj w kolekcji</span><input id="collectionFilter" type="search" placeholder="Tytuł, format, półka, kod…"></label>
+        <label><span>Szukaj w kolekcji</span><input id="collectionFilter" type="search" placeholder="Tytuł, notatki, lokalizacja, typ wydania…"></label>
         <label><span>Sortowanie</span>
           <select id="collectionSort">
             <option value="newest">Najnowsze wpisy</option>
@@ -185,7 +188,23 @@
           </select>
         </label>
       </div>
+      <div class="collector-filters" aria-label="Filtry kolekcji">
+        <div><span>Rodzaj</span><button type="button" data-item-filter="Film">Film</button><button type="button" data-item-filter="Serial">Serial</button></div>
+        <div><span>Nośnik</span><button type="button" data-media-filter="DVD">DVD</button><button type="button" data-media-filter="Blu-ray">Blu-ray</button><button type="button" data-media-filter="UHD Blu-ray">UHD Blu-ray</button><button type="button" data-media-filter="VHS">VHS</button></div>
+        <button id="clearCollectorFilters" class="filter-clear" type="button">Wyczyść filtry</button>
+      </div>
       <div id="collectionResults" class="collection-grid"></div>
+    </section>
+
+    <section id="wishlistPanel" class="page-panel hidden">
+      <div class="panel-header collection-header">
+        <div><p class="eyebrow">WISHLIST</p><h1>Lista życzeń</h1><p id="wishlistCount">Ładowanie…</p></div>
+        <button id="refreshWishlistButton" class="secondary-button" type="button">Odśwież</button>
+      </div>
+      <div class="collection-toolbar">
+        <label><span>Szukaj na wishliście</span><input id="wishlistFilter" type="search" placeholder="Tytuł, nośnik, typ wydania…"></label>
+      </div>
+      <div id="wishlistResults" class="collection-grid"></div>
     </section>
 
     <section id="searchPanel" class="page-panel hidden">
@@ -204,7 +223,7 @@
 
     <section id="settingsPanel" class="page-panel hidden">
       <div class="panel-header">
-        <div><p class="eyebrow">USTAWIENIA</p><h1>MovieVault</h1><p class="settings-version">Wersja aplikacji: <strong>MovieVault 3.4.0</strong></p></div>
+        <div><p class="eyebrow">USTAWIENIA</p><h1>MovieVault</h1><p class="settings-version">Wersja aplikacji: <strong>MovieVault 3.5.0 Collector's Edition</strong></p></div>
       </div>
 
       <div class="settings-grid">
@@ -249,10 +268,17 @@
           <div class="form-grid">
             <label class="wide"><span>Kod kreskowy <small class="optional-label">opcjonalnie</small></span><div class="field-with-button"><input id="barcode" inputmode="numeric" placeholder="Kod EAN / UPC lub zostaw puste"><button id="scanButton" type="button">Skanuj</button></div><small class="field-hint">Płyty bez kodu również możesz dodać. MovieVault nada im własny identyfikator.</small></label>
             <label class="wide"><span>Tytuł</span><div class="field-with-button"><input id="title" placeholder="Tytuł filmu"><button id="tmdbSearchButton" type="button">Znajdź w TMDb</button></div></label>
-            <label><span>Format</span><select id="format"><option>DVD</option><option>Blu-ray</option><option>4K UHD</option><option>Steelbook</option><option>Box Set</option><option>VHS</option></select></label>
+            <label><span>Rodzaj pozycji</span><select id="itemType"><option>Film</option><option>Serial</option></select></label>
+            <label><span>Nośnik</span><select id="format"><option>DVD</option><option>Blu-ray</option><option>UHD Blu-ray</option><option>VHS</option></select></label>
+            <label id="seasonCountField" class="hidden"><span>Liczba sezonów</span><input id="seasonCount" placeholder="np. 3 lub Kompletny serial"></label>
+            <label><span>Typ wydania</span><select id="editionType"><option>Standard</option><option>Steelbook</option><option>Digibook</option><option>Mediabook</option><option>Collector's Edition</option><option>Slipcover</option><option>Box</option><option>Inne</option></select></label>
+            <label><span>Stan</span><select id="condition"><option>Nowy</option><option selected>Bardzo dobry</option><option>Dobry</option><option>Dostateczny</option><option>Uszkodzony</option></select></label>
+            <label><span>Status</span><select id="ownershipStatus"><option>Posiadam</option><option>Wishlist</option></select></label>
             <label><span>Rok</span><input id="year" inputmode="numeric" placeholder="2002"></label>
-            <label><span>Półka</span><input id="shelf" placeholder="np. Regał A / półka 2"></label>
-            <label class="wide"><span>Notatki</span><textarea id="notes" rows="4" placeholder="Wydanie, stan, dodatki…"></textarea></label>
+            <label><span>Lokalizacja</span><input id="shelf" placeholder="np. Regał A / półka 2"></label>
+            <label class="wide"><span>Własna okładka (URL)</span><input id="customCoverUrl" type="url" placeholder="https://…"><small class="field-hint">Adres obrazu będzie synchronizowany przez Arkusz Google.</small></label>
+            <label class="wide"><span>Własna okładka z pliku</span><input id="customCoverFile" type="file" accept="image/*"><small class="field-hint">Plik jest przechowywany lokalnie na tym urządzeniu i uwzględniany w backupie.</small></label>
+            <label class="wide"><span>Notatki</span><textarea id="notes" rows="4" placeholder="Kupiony na Allegro, autograf, limitowana edycja…"></textarea></label>
           </div>
           <div id="tmdbStatus"></div>
           <div id="tmdbResults" class="tmdb-results"></div>
@@ -283,6 +309,9 @@
     </button>
     <button type="button" data-mobile-add>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg><small>Dodaj</small>
+    </button>
+    <button type="button" data-mobile-wishlist>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5 4.8 13.8A5 5 0 0 1 12 6.9a5 5 0 0 1 7.2 6.9z"/></svg><small>Wishlist</small>
     </button>
     <button type="button" data-mobile-settings>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2-1.2L14.2 3h-4.4l-.3 2.7a8 8 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2 1.2l.3 2.7h4.4l.3-2.7a8 8 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg><small>Ustawienia</small>
