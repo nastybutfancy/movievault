@@ -1,10 +1,10 @@
-const CACHE_NAME = "movievault-collector-3.3.0";
+const CACHE_NAME = "movievault-collector-3.4.0";
 const ASSETS = [
-  "./movievault-icon-maskable-512.png?v=3.2.1",
-  "./movievault-icon-512.png?v=3.2.1",
-  "./movievault-icon-192.png?v=3.2.1",
-  "./apple-touch-icon.png?v=3.2.1",
-  "./manifest.webmanifest?v=3.2.1","./", "./index.html", "./styles.css?v=3.3.0", "./app.js?v=3.3.0", "./manifest.webmanifest", "./movievault-logo.webp", "./movievault-icon.webp"];
+  "./movievault-icon-maskable-512.png?v=3.4.0",
+  "./movievault-icon-512.png?v=3.4.0",
+  "./movievault-icon-192.png?v=3.4.0",
+  "./apple-touch-icon.png?v=3.4.0",
+  "./manifest.webmanifest?v=3.4.0","./", "./index.html", "./styles.css?v=3.4.0", "./app.js?v=3.4.0", "./manifest.webmanifest", "./movievault-logo.webp", "./movievault-icon.webp"];
 
 self.addEventListener("install", event => {
   self.skipWaiting();

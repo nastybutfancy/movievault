@@ -1,4 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
+const APP_VERSION = "3.4.0";
 
 function safeElement(id) {
   return document.getElementById(id);
@@ -11,6 +12,7 @@ function showHome() {
     "resultPanel",
     "collectionPanel",
     "searchPanel",
+    "settingsPanel",
     "addPanel"
   ].forEach(function (id) {
     const node = safeElement(id);
@@ -25,8 +27,15 @@ function setActiveNavigation(section) {
   document.querySelectorAll(".nav-link, .mobile-nav button").forEach(function (button) {
     button.classList.remove("active");
   });
-  if (section === "home") {
-    document.querySelectorAll("[data-home]").forEach(function (button) {
+  const selectors = {
+    home: "[data-home]",
+    collection: "#collectionButton, [data-mobile-collection]",
+    add: "#addButton, [data-mobile-add]",
+    scan: "[data-mobile-scan]",
+    settings: "#settingsButton, [data-mobile-settings]"
+  };
+  if (selectors[section]) {
+    document.querySelectorAll(selectors[section]).forEach(function (button) {
       button.classList.add("active");
     });
   }
@@ -54,6 +63,116 @@ function openCollectionWithFormat(format) {
   const filter = safeElement("collectionFilter");
   if (filter) filter.value = format || "";
   loadCollection();
+}
+
+function openSettings() {
+  showOnly("settingsPanel");
+  setActiveNavigation("settings");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function readBackupFile(file) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      try { resolve(JSON.parse(String(reader.result || ""))); }
+      catch (error) { reject(new Error("Wybrany plik nie zawiera poprawnego JSON.")); }
+    };
+    reader.onerror = function () { reject(new Error("Nie udało się odczytać pliku.")); };
+    reader.readAsText(file, "utf-8");
+  });
+}
+
+function normalizeBackupMovie(movie) {
+  const copy = Object.assign({}, movie || {});
+  copy.barcode = normalizeBarcode(copy.barcode) || generateInternalBarcode();
+  ["genres", "cast"].forEach(function (key) {
+    if (Array.isArray(copy[key])) copy[key] = copy[key];
+    else if (copy[key]) copy[key] = String(copy[key]).split(/[,|]/).map(function (item) { return item.trim(); }).filter(Boolean);
+    else copy[key] = [];
+  });
+  return copy;
+}
+
+async function importCollectionBackup(file) {
+  const button = safeElement("importBackupButton");
+  const status = safeElement("importBackupStatus");
+  const originalText = button ? button.textContent : "";
+
+  try {
+    if (!file) return;
+    if (button) { button.disabled = true; button.textContent = "Importowanie…"; }
+    if (status) status.textContent = "Sprawdzam plik kopii zapasowej…";
+
+    const backup = await readBackupFile(file);
+    if (!backup || backup.application !== "MovieVault" || !Array.isArray(backup.movies)) {
+      throw new Error("To nie jest prawidłowa kopia zapasowa MovieVault.");
+    }
+
+    const currentResponse = await apiRequest("collection", { sort: "newest" });
+    const currentMovies = Array.isArray(currentResponse.movies) ? currentResponse.movies : [];
+    const existingBarcodes = new Set(currentMovies.map(function (movie) { return normalizeBarcode(movie.barcode); }).filter(Boolean));
+    const imported = [];
+
+    for (let index = 0; index < backup.movies.length; index += 1) {
+      const movie = normalizeBackupMovie(backup.movies[index]);
+      if (!String(movie.title || "").trim()) continue;
+      const barcode = normalizeBarcode(movie.barcode);
+      const exists = existingBarcodes.has(barcode);
+      const parameters = Object.assign({}, movie, {
+        barcode: barcode,
+        originalBarcode: exists ? barcode : ""
+      });
+      if (status) status.textContent = "Importuję film " + (index + 1) + " z " + backup.movies.length + ": " + (movie.title || "Bez tytułu");
+      await apiRequest(exists ? "update" : "add", parameters);
+      existingBarcodes.add(barcode);
+      imported.push(movie);
+    }
+
+    const refreshed = await apiRequest("collection", { sort: "newest" });
+    collectionCache = Array.isArray(refreshed.movies) ? refreshed.movies : imported;
+    persistCollectionCache();
+    renderHomeDashboard();
+    renderStatsFromCollection();
+    if (safeElement("collectionPanel") && !safeElement("collectionPanel").classList.contains("hidden")) renderCollection();
+    if (status) status.textContent = "Gotowe. Zaimportowano " + imported.length + " filmów. Dane w Arkuszu Google zostały zaktualizowane.";
+  } catch (error) {
+    console.error("Import kopii:", error);
+    if (status) status.textContent = "Błąd: " + error.message;
+    alert("Nie udało się zaimportować kopii zapasowej: " + error.message);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = originalText; }
+    const input = safeElement("backupFileInput");
+    if (input) input.value = "";
+  }
+}
+
+async function clearApplicationCache() {
+  const button = safeElement("clearCacheButton");
+  const status = safeElement("clearCacheStatus");
+  const originalText = button ? button.textContent : "";
+  try {
+    if (button) { button.disabled = true; button.textContent = "Czyszczenie…"; }
+    localStorage.clear();
+    sessionStorage.clear();
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(function (key) { return caches.delete(key); }));
+    }
+    collectionCache = [];
+    collectionCacheReady = false;
+    collectionCacheSavedAt = 0;
+    renderHomeDashboard();
+    renderStatsFromCollection();
+    if (status) status.textContent = "Cache wyczyszczony. Pobieram ponownie dane z Arkusza Google…";
+    await loadHomeDashboard(true);
+    if (status) status.textContent = "Cache i lokalna pamięć zostały wyczyszczone, a kolekcja ponownie pobrana z Arkusza Google. Dane w Arkuszu nie zostały zmienione.";
+  } catch (error) {
+    console.error("Czyszczenie cache:", error);
+    if (status) status.textContent = "Nie udało się wyczyścić całego cache: " + error.message;
+  } finally {
+    if (button) { button.disabled = false; button.textContent = originalText; }
+  }
 }
 
 function normalizeFormat(value) {
@@ -123,7 +242,7 @@ async function createCollectionBackup(button) {
     const backup = {
       application: "MovieVault",
       backupVersion: 1,
-      appVersion: "3.3.0",
+      appVersion: APP_VERSION,
       createdAt: createdAt.toISOString(),
       movieCount: movies.length,
       movies: movies
@@ -376,8 +495,8 @@ function setupCollectorExperience() {
   document.querySelectorAll("[data-mobile-scan]").forEach(function (button) {
     button.addEventListener("click", openScannerFromHome);
   });
-  document.querySelectorAll("[data-mobile-search]").forEach(function (button) {
-    button.addEventListener("click", openSearchFromHome);
+  document.querySelectorAll("[data-mobile-settings]").forEach(function (button) {
+    button.addEventListener("click", openSettings);
   });
   document.querySelectorAll(".action-card").forEach(function (button) {
     button.addEventListener("click", function () {
@@ -544,6 +663,14 @@ document.addEventListener(
       }
     );
 
+    $("settingsButton").addEventListener("click", openSettings);
+    $("settingsSearchButton").addEventListener("click", openSearchFromHome);
+    $("importBackupButton").addEventListener("click", function () { $("backupFileInput").click(); });
+    $("backupFileInput").addEventListener("change", function (event) {
+      importCollectionBackup(event.target.files && event.target.files[0]);
+    });
+    $("clearCacheButton").addEventListener("click", clearApplicationCache);
+
     $("runSearchButton").addEventListener(
       "click",
       runSearch
@@ -691,6 +818,7 @@ function showOnly(panelId) {
     "resultPanel",
     "collectionPanel",
     "searchPanel",
+    "settingsPanel",
     "addPanel"
   ].forEach(
     function (id) {
