@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.0";
+const APP_VERSION = "3.5.1";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -98,6 +98,19 @@ function effectivePoster(movie) {
   return local || movie?.customCoverUrl || moviePoster(movie || {});
 }
 function isOwned(movie) { return String(movie?.ownershipStatus || "Posiadam").toLowerCase() !== "wishlist"; }
+
+const collectorSearchCache = new WeakMap();
+function collectorSearchText(movie) {
+  if (!movie || typeof movie !== "object") return "";
+  if (collectorSearchCache.has(movie)) return collectorSearchCache.get(movie);
+  const text = [
+    movie.title, movie.originalTitle, movie.year, movie.itemType, movie.mediaType, movie.format,
+    movie.editionType, movie.condition, movie.location, movie.shelf, movie.barcode,
+    movie.catalogBarcode, movie.notes
+  ].filter(Boolean).join(" ").toLocaleLowerCase("pl-PL");
+  collectorSearchCache.set(movie, text);
+  return text;
+}
 
 function safeElement(id) {
   return document.getElementById(id);
@@ -379,7 +392,7 @@ async function createCollectionBackup(button) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "MovieVault_3.5.0_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.download = "MovieVault_3.5.1_Backup_" + backupDateStamp(createdAt) + ".json";
     link.style.display = "none";
 
     document.body.appendChild(link);
@@ -1026,16 +1039,7 @@ function renderCollection() {
         const matchesMedia = !activeMediaFilters.size || activeMediaFilters.has(movie.mediaType || normalizeMediaType(movie.format));
         if (!matchesItem || !matchesMedia) return false;
         if (!filter) return true;
-        const searchableText = [
-          movie.title, movie.originalTitle, movie.year, movie.itemType, movie.mediaType, movie.editionType, movie.condition,
-          movie.location, movie.shelf, movie.barcode, movie.catalogBarcode, movie.notes
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return searchableText.includes(
-          filter
-        );
+        return collectorSearchText(movie).includes(filter);
       }
     );
 
@@ -2100,10 +2104,9 @@ async function runSearch() {
   $("searchResults").innerHTML = '<div class="movie">Szukanie...</div>';
   try {
     if (!collectionCacheReady) await loadCollection(true);
-    const needle = query.toLowerCase();
+    const needle = query.toLocaleLowerCase("pl-PL");
     const localFound = collectionCache.filter(function (movie) {
-      return [movie.title, movie.originalTitle, movie.notes, movie.location, movie.shelf, movie.editionType, movie.condition, movie.itemType, movie.mediaType, movie.catalogBarcode, movie.barcode]
-        .join(" ").toLowerCase().includes(needle);
+      return collectorSearchText(movie).includes(needle);
     });
     let remoteFound = [];
     try {
@@ -2191,10 +2194,10 @@ function clearCollectorFilters() {
   renderCollection();
 }
 function renderWishlist() {
-  const needle = String(safeElement("wishlistFilter")?.value || "").trim().toLowerCase();
+  const needle = String(safeElement("wishlistFilter")?.value || "").trim().toLocaleLowerCase("pl-PL");
   const movies = collectionCache.filter(function(movie){
     if (isOwned(movie)) return false;
-    return [movie.title,movie.notes,movie.location,movie.editionType,movie.mediaType].join(" ").toLowerCase().includes(needle);
+    return collectorSearchText(movie).includes(needle);
   });
   setText("wishlistCount", movies.length + " pozycji");
   const node=safeElement("wishlistResults"); if(!node) return;

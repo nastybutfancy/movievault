@@ -353,3 +353,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
+
+## 3.5.1 — Quality Update
+- Naprawiony responsywny układ badge i roku na kartach.
+- Siatka 4/3/2 kolumny dla desktopu/tabletu/telefonu.
+- Poprawki małych ekranów, safe-area, fokusu i ograniczenia animacji.
+- Zoptymalizowane lokalne filtrowanie i wyszukiwanie.
+- Usunięte nieużywane historyczne kopie modułów JavaScript.
+- Backend i struktura danych bez zmian.
