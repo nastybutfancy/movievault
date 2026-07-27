@@ -1362,3 +1362,143 @@ input:focus,select:focus,textarea:focus { border-color:rgba(181,92,255,.72); box
   .format-badge,
   .year-badge { font-size: 6.5px !important; padding: 2px !important; }
 }
+
+
+/* =========================================================
+   MOVIEVAULT 3.5.2 — MOBILE VISUAL POLISH 2
+   Hero art separation, three-column collection, unified glow.
+   Desktop remains unchanged.
+   ========================================================= */
+@media (max-width: 760px) {
+  /* Keep the desktop composition readable on narrow screens without shrinking the copy. */
+  .hero-art {
+    inset: 0 0 0 39% !important;
+    opacity: .30 !important;
+    overflow: hidden !important;
+  }
+  .hero-art .shelf-a {
+    top: 18px !important;
+    left: 2px !important;
+    transform: scale(.48) perspective(500px) rotateY(-8deg) !important;
+    transform-origin: left top !important;
+  }
+  .hero-art .shelf-b {
+    top: 124px !important;
+    left: 28px !important;
+    transform: scale(.48) perspective(500px) rotateY(-8deg) !important;
+    transform-origin: left top !important;
+  }
+  .hero-art .projector {
+    top: 55px !important;
+    right: -42px !important;
+    transform: scale(.48) !important;
+    transform-origin: right top !important;
+  }
+
+  /* Every quick action receives the same neon edge and depth. */
+  .action-card {
+    border-color: rgba(130, 151, 225, .24) !important;
+    background: linear-gradient(145deg, rgba(18, 24, 48, .92), rgba(8, 12, 27, .91)) !important;
+    box-shadow:
+      inset 0 1px rgba(255,255,255,.035),
+      0 12px 28px rgba(0,0,0,.26),
+      -5px 8px 18px rgba(181,92,255,.10),
+      5px 8px 18px rgba(38,142,234,.08) !important;
+  }
+  .action-card::after {
+    left: 10px !important;
+    right: 10px !important;
+    height: 2px !important;
+    opacity: 1 !important;
+    background: linear-gradient(90deg, transparent, #b55cff 28%, #5eebff 72%, transparent) !important;
+    filter: drop-shadow(0 0 6px rgba(181,92,255,.7)) !important;
+  }
+
+  /* Three films per row in Collection. */
+  .collection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+  .collection-card {
+    padding: 5px !important;
+    border-radius: 12px !important;
+  }
+  .collection-main-info {
+    padding: 7px 3px 5px !important;
+  }
+  .collection-main-info h3,
+  .collection-card h3 {
+    margin-bottom: 6px !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+  }
+  .collection-badges {
+    gap: 4px !important;
+  }
+  .format-badge,
+  .year-badge {
+    padding: 3px 4px !important;
+    font-size: 8px !important;
+    border-radius: 6px !important;
+  }
+
+  /* Recently added cards blend with the page instead of forming opaque dark blocks. */
+  .poster-card {
+    background: linear-gradient(180deg, rgba(14,20,42,.72), rgba(7,11,24,.58)) !important;
+    border-color: rgba(152, 124, 225, .31) !important;
+    box-shadow:
+      inset 0 1px rgba(255,255,255,.028),
+      0 14px 30px rgba(0,0,0,.24),
+      0 7px 16px rgba(181,92,255,.10) !important;
+  }
+  .poster-card::after {
+    content: "";
+    position: absolute;
+    z-index: 4;
+    left: 10px;
+    right: 10px;
+    bottom: 0;
+    height: 2px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, #b55cff 32%, #5eebff 70%, transparent);
+    filter: drop-shadow(0 0 6px rgba(181,92,255,.55));
+  }
+  .poster-meta {
+    min-height: 96px !important;
+    padding: 11px 12px 13px !important;
+    background: transparent !important;
+  }
+  .poster-meta small {
+    padding-inline: 1px !important;
+  }
+  .poster-meta .format-pill {
+    margin-left: 0 !important;
+  }
+  .poster-meta small > span:first-child {
+    margin-right: 1px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .hero-art {
+    left: 41% !important;
+  }
+  .hero-art .shelf-a {
+    transform: scale(.43) perspective(500px) rotateY(-8deg) !important;
+  }
+  .hero-art .shelf-b {
+    top: 112px !important;
+    left: 20px !important;
+    transform: scale(.43) perspective(500px) rotateY(-8deg) !important;
+  }
+  .hero-art .projector {
+    top: 51px !important;
+    right: -48px !important;
+    transform: scale(.43) !important;
+  }
+  .collection-grid { gap: 7px !important; }
+  .collection-main-info h3,
+  .collection-card h3 { font-size: 9px !important; }
+  .format-badge,
+  .year-badge { font-size: 7.5px !important; }
+}
