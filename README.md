@@ -157,30 +157,6 @@ MovieVault is built using:
 
 ---
 
-# 📱 Gallery
-
-<p align="center">
-
-<img src="docs/screenshots/home.png" width="240">
-
-<img src="docs/screenshots/collection.png" width="240">
-
-<img src="docs/screenshots/details.png" width="240">
-
-</p>
-
-<p align="center">
-
-<img src="docs/screenshots/scanner.png" width="240">
-
-<img src="docs/screenshots/settings.png" width="240">
-
-<img src="docs/screenshots/wishlist.png" width="240">
-
-</p>
-
----
-
 # 📈 Current Version
 
 ## MovieVault 3.5.2
@@ -196,25 +172,6 @@ MovieVault is built using:
 - Refined cards
 - Improved animations
 - Optimized performance
-
----
-
-# 🛣 Roadmap
-
-The future of MovieVault.
-
-- 🤖 AI Movie Recommendations
-- 📊 Collection Statistics
-- 💰 Collection Value
-- 🎭 Actor Library
-- 🎬 Director Library
-- 📚 Franchises
-- ⭐ Favorites
-- 🎨 Themes
-- 🌍 Multi-language Support
-- ☁ Cloud Sync
-- 👤 User Profiles
-- 💻 Desktop Edition
 
 ---
 
