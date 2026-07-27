@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.1";
+const APP_VERSION = "3.5.2";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -392,7 +392,7 @@ async function createCollectionBackup(button) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "MovieVault_3.5.1_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.download = "MovieVault_3.5.2_Backup_" + backupDateStamp(createdAt) + ".json";
     link.style.display = "none";
 
     document.body.appendChild(link);

@@ -957,3 +957,267 @@ input:focus,select:focus,textarea:focus { border-color:rgba(181,92,255,.72); box
 .format-badge.vhs { color:#ffb47e;border-color:rgba(240,132,69,.62);background:rgba(240,132,69,.09); }
 .year-badge { color:#aab4ca;border-color:transparent;background:transparent;padding-inline:1px;flex:0 0 auto; }
 @media(max-width:760px){.format-badge,.year-badge{font-size:9px;padding:3px 6px}.year-badge{padding-inline:1px}.collection-badges{gap:5px}.collection-cover-frame{border-radius:9px}}
+
+/* =========================================================
+   MOVIEVAULT DESIGN EDITION — MOBILE POLISH 1
+   Mobile-only visual corrections. Desktop remains unchanged.
+   ========================================================= */
+@media (max-width: 760px) {
+  /* A real mobile header, always visible and unmistakably MovieVault */
+  .topbar {
+    position: fixed !important;
+    inset: 0 0 auto 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    height: calc(70px + env(safe-area-inset-top)) !important;
+    min-height: calc(70px + env(safe-area-inset-top)) !important;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px !important;
+    margin: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: hidden !important;
+    background: linear-gradient(180deg, rgba(6, 8, 17, .98), rgba(8, 11, 23, .91)) !important;
+    border-bottom: 1px solid rgba(145, 162, 218, .13) !important;
+    backdrop-filter: blur(22px) saturate(130%) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(130%) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .22) !important;
+    z-index: 100 !important;
+  }
+  .topbar .brand,
+  .topbar .brand-with-logo {
+    display: flex !important;
+    align-items: center !important;
+    width: auto !important;
+    max-width: min(245px, 72vw) !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 2 !important;
+  }
+  .topbar .brand-logo-image {
+    display: block !important;
+    width: min(218px, 66vw) !important;
+    height: 46px !important;
+    max-height: 46px !important;
+    object-fit: contain !important;
+    object-position: left center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .app-shell {
+    padding-top: calc(84px + env(safe-area-inset-top)) !important;
+  }
+
+  /* Compact hero: premium, but no longer swallows the first screen */
+  .collector-hero {
+    min-height: 246px !important;
+    padding: 28px 22px !important;
+    border-radius: 22px !important;
+  }
+  .hero-copy h1 {
+    max-width: 320px;
+    font-size: clamp(38px, 11.5vw, 48px) !important;
+    line-height: .98 !important;
+    letter-spacing: -.052em !important;
+  }
+  .eyebrow {
+    margin-bottom: 17px !important;
+    font-size: 10px !important;
+  }
+  .hero-lead {
+    max-width: 210px !important;
+    margin-top: 20px !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+  .hero-art {
+    inset: 0 0 0 46% !important;
+    opacity: .19 !important;
+  }
+  .shelf { transform: scale(.68) !important; transform-origin: right center !important; }
+  .projector { transform: scale(.62) !important; transform-origin: right center !important; right: -52px !important; }
+
+  /* Quick actions: equal cards and calmer proportions */
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 11px !important;
+    margin: 14px 0 34px !important;
+  }
+  .action-card {
+    min-height: 108px !important;
+    height: 108px !important;
+    padding: 14px !important;
+    gap: 10px !important;
+    justify-content: flex-start !important;
+    border-radius: 18px !important;
+  }
+  .action-icon {
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px !important;
+    border-radius: 13px !important;
+    font-size: 22px !important;
+  }
+  .action-copy strong {
+    display: -webkit-box !important;
+    overflow: hidden !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Filters: labels become headings, chips never escape the panel */
+  .collector-filters {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+    gap: 18px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    overflow: hidden !important;
+  }
+  .collector-filters > div {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 9px !important;
+    margin: 0 !important;
+  }
+  .collector-filters > div > span {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 0 2px !important;
+    font-size: 11px !important;
+    letter-spacing: .13em !important;
+  }
+  .collector-filters button {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+    min-height: 42px !important;
+    padding: 0 15px !important;
+    font-size: 14px !important;
+    white-space: normal !important;
+    line-height: 1.15 !important;
+  }
+  .collector-filters .filter-clear {
+    width: 100% !important;
+    min-height: 48px !important;
+    margin: 2px 0 0 !important;
+  }
+
+  /* Recently added: compact shelf cards with clean metadata rhythm */
+  .dashboard-section { margin-top: 34px !important; }
+  .section-heading {
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
+  .section-heading h2 {
+    min-width: 0 !important;
+    font-size: 12px !important;
+    letter-spacing: .095em !important;
+    white-space: nowrap !important;
+  }
+  .section-heading button {
+    flex: 0 0 auto !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+  }
+  .poster-rail {
+    grid-auto-columns: 154px !important;
+    gap: 11px !important;
+    width: 100% !important;
+    padding: 2px 1px 14px !important;
+    scroll-padding-inline: 1px !important;
+    overscroll-behavior-inline: contain !important;
+    scrollbar-width: none !important;
+  }
+  .poster-rail::-webkit-scrollbar { display: none !important; }
+  .poster-card {
+    min-width: 154px !important;
+    width: 154px !important;
+    border-radius: 15px !important;
+  }
+  .poster-meta {
+    min-height: 92px !important;
+    padding: 10px 9px 11px !important;
+  }
+  .poster-meta strong {
+    min-height: 34px !important;
+    font-size: 12px !important;
+    line-height: 1.32 !important;
+  }
+  .poster-meta small {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    margin-top: 8px !important;
+  }
+  .poster-meta small > span:first-child {
+    order: 2 !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+    color: #9ca7bd !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+  .poster-meta .format-pill {
+    order: 1 !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: calc(100% - 42px) !important;
+    padding: 3px 7px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 9px !important;
+  }
+
+  /* Slimmer bottom navigation, with the scanner still clearly primary */
+  body { padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important; }
+  .mobile-nav {
+    left: 9px !important;
+    right: 9px !important;
+    bottom: max(7px, env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    height: 64px !important;
+    padding: 3px 3px max(3px, env(safe-area-inset-bottom)) !important;
+    border-radius: 20px !important;
+  }
+  .mobile-nav button { gap: 2px !important; }
+  .mobile-nav button svg { width: 20px !important; height: 20px !important; }
+  .mobile-nav button small { font-size: 7px !important; line-height: 1 !important; }
+  .mobile-nav .scan-main {
+    width: 58px !important;
+    height: 58px !important;
+    margin-bottom: 9px !important;
+  }
+  .mobile-nav .scan-main svg { width: 27px !important; height: 27px !important; }
+}
+
+@media (max-width: 390px) {
+  .topbar { padding-inline: 13px !important; }
+  .topbar .brand-logo-image { width: min(198px, 65vw) !important; height: 43px !important; }
+  .collector-hero { min-height: 232px !important; padding: 25px 19px !important; }
+  .hero-copy h1 { font-size: clamp(35px, 11vw, 42px) !important; }
+  .hero-lead { font-size: 12px !important; max-width: 195px !important; }
+  .action-card { min-height: 104px !important; height: 104px !important; padding: 12px !important; }
+  .action-copy strong { font-size: 13px !important; }
+  .poster-rail { grid-auto-columns: 146px !important; }
+  .poster-card { min-width: 146px !important; width: 146px !important; }
+  .section-heading h2 { font-size: 11px !important; }
+  .section-heading button { font-size: 10px !important; }
+}
