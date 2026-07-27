@@ -1515,17 +1515,26 @@ input:focus,select:focus,textarea:focus { border-color:rgba(181,92,255,.72); box
   body.mobile-intro-running {
     overflow: hidden !important;
     touch-action: none;
+    background: #03050c !important;
+  }
+
+  body.mobile-intro-running > :not(#mobileSplash):not(script) {
+    visibility: hidden !important;
   }
 
   .mobile-splash {
     position: fixed !important;
     z-index: 2147483647 !important;
-    inset: 0 !important;
+    top: -2px !important;
+    right: 0 !important;
+    bottom: -160px !important;
+    left: 0 !important;
     display: grid !important;
     place-items: center;
     width: 100vw;
-    height: 100dvh;
-    min-height: 100vh;
+    height: auto;
+    min-height: calc(100vh + 164px);
+    min-height: calc(100dvh + 164px);
     isolation: isolate;
     padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
     overflow: hidden;

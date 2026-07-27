@@ -3,24 +3,55 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#080b16">
+  <meta name="theme-color" content="#03050c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #03050c; }
+    @media (max-width: 760px) {
+      body.mobile-intro-running { overflow: hidden !important; background: #03050c !important; }
+      body.mobile-intro-running > :not(#mobileSplash):not(script) { visibility: hidden !important; }
+      #mobileSplash {
+        position: fixed !important;
+        z-index: 2147483647 !important;
+        top: -2px !important;
+        right: 0 !important;
+        bottom: -160px !important;
+        left: 0 !important;
+        display: grid !important;
+        place-items: center !important;
+        min-height: calc(100vh + 164px) !important;
+        min-height: calc(100dvh + 164px) !important;
+        overflow: hidden !important;
+        background: radial-gradient(circle at 50% 45%, rgba(53,40,130,.24), transparent 44%), linear-gradient(145deg,#03050c 0%,#070a17 58%,#050713 100%) !important;
+      }
+    }
+  </style>
   <meta name="description" content="MovieVault — cyfrowe archiwum fizycznej kolekcji filmów.">
   <title>MovieVault</title>
-  <link rel="manifest" href="manifest.webmanifest?v=3.5.2-mobile-intro-fixed-v2">
-  <link rel="icon" href="movievault-design-icon-192.png?v=3.5.2-mobile-intro-fixed-v2" type="image/png">
-  <link rel="apple-touch-icon" href="movievault-design-apple-touch.png?v=3.5.2-mobile-intro-fixed-v2">
+  <link rel="manifest" href="manifest.webmanifest?v=3.5.2-mobile-intro-standalone-v4">
+  <link rel="icon" href="movievault-design-icon-192.png?v=3.5.2-mobile-intro-standalone-v4" type="image/png">
+  <link rel="apple-touch-icon" href="movievault-design-apple-touch.png?v=3.5.2-mobile-intro-standalone-v4">
+  <link rel="apple-touch-startup-image" href="apple-splash-1320x2868.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-1290x2796.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-1179x2556.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-1284x2778.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-1125x2436.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-1242x2688.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-828x1792.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+  <link rel="apple-touch-startup-image" href="apple-splash-750x1334.png?v=3.5.2-mobile-intro-standalone-v4" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <meta name="apple-mobile-web-app-title" content="MovieVault">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3.5.2-mobile-intro-fixed-v2">
+  <link rel="stylesheet" href="styles.css?v=3.5.2-mobile-intro-standalone-v4">
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" defer></script>
-  <script src="app.js?v=3.5.2-mobile-intro-fixed-v2" defer></script>
+  <script src="app.js?v=3.5.2-mobile-intro-standalone-v4" defer></script>
 </head>
-<body>
+<body class="mobile-intro-running">
   <div id="mobileSplash" class="mobile-splash" aria-hidden="true">
     <div class="mobile-splash-glow"></div>
-    <img class="mobile-splash-logo" src="movievault-design-logo.png?v=3.5.2-mobile-intro-fixed-v2" alt="">
+    <img class="mobile-splash-logo" src="movievault-design-logo.png?v=3.5.2-mobile-intro-standalone-v4" alt="">
   </div>
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
@@ -349,28 +380,81 @@
       if (!splash) return;
 
       const isMobile = window.matchMedia('(max-width: 760px)').matches;
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       if (!isMobile) {
         splash.remove();
+        document.body.classList.remove('mobile-intro-running');
         return;
       }
 
-      document.body.classList.add('mobile-intro-running');
+      let started = false;
+      let finished = false;
+      let finishTimer = 0;
 
-      const finishIntro = () => {
-        if (!splash.isConnected) return;
-        splash.classList.add('mobile-splash-finished');
-        document.body.classList.remove('mobile-intro-running');
-        window.setTimeout(() => splash.remove(), reduceMotion ? 80 : 480);
+      const resetSplash = () => {
+        window.clearTimeout(finishTimer);
+        finished = false;
+        splash.classList.remove('mobile-splash-playing', 'mobile-splash-finished');
+        document.body.classList.add('mobile-intro-running');
+        // Force Safari to commit the reset before the animation class returns.
+        void splash.offsetWidth;
       };
 
-      if (reduceMotion) {
-        window.setTimeout(finishIntro, 180);
-      } else {
-        splash.classList.add('mobile-splash-playing');
-        window.setTimeout(finishIntro, 1650);
-      }
+      const finishIntro = () => {
+        if (finished || !splash.isConnected) return;
+        finished = true;
+        splash.classList.add('mobile-splash-finished');
+        document.body.classList.remove('mobile-intro-running');
+        window.setTimeout(() => {
+          // Keep the node available in standalone mode so a restored PWA
+          // session can replay the intro on the next genuine launch.
+          if (!isStandalone && splash.isConnected) splash.remove();
+        }, reduceMotion ? 100 : 520);
+      };
+
+      const playIntro = () => {
+        if (started || document.visibilityState === 'hidden') return;
+        started = true;
+        resetSplash();
+
+        const begin = () => {
+          if (reduceMotion) {
+            finishTimer = window.setTimeout(finishIntro, 220);
+          } else {
+            splash.classList.add('mobile-splash-playing');
+            finishTimer = window.setTimeout(finishIntro, 1700);
+          }
+        };
+
+        // In standalone iOS the page may execute behind the native launch
+        // screen. Two frames plus a short delay ensure the animation starts
+        // only after the web view is actually visible.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.setTimeout(begin, isStandalone ? 180 : 20);
+        }));
+      };
+
+      const requestPlay = () => {
+        if (document.visibilityState === 'visible') playIntro();
+      };
+
+      document.addEventListener('visibilitychange', requestPlay, { passive: true });
+      window.addEventListener('focus', requestPlay, { passive: true });
+      window.addEventListener('pageshow', event => {
+        if (isStandalone && event.persisted) {
+          started = false;
+          resetSplash();
+        }
+        requestPlay();
+      }, { passive: true });
+
+      if (document.readyState === 'complete') requestPlay();
+      else window.addEventListener('load', requestPlay, { once: true, passive: true });
+
+      // Fallback for iOS versions that do not dispatch focus promptly.
+      window.setTimeout(requestPlay, isStandalone ? 650 : 80);
     })();
   </script>
 

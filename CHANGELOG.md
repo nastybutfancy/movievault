@@ -361,3 +361,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 - Zoptymalizowane lokalne filtrowanie i wyszukiwanie.
 - Usunięte nieużywane historyczne kopie modułów JavaScript.
 - Backend i struktura danych bez zmian.
+
+## 3.5.2 Mobile Intro Standalone v4
+- Delayed the cinematic logo animation until the standalone iOS web view is genuinely visible.
+- Replays the splash when iOS restores a persisted Home Screen session.
+- Added dark MovieVault Apple startup images for current iPhone portrait resolutions to eliminate the white launch flash.
+- Updated PWA cache revision to `movievault-collector-3.5.2-mobile-intro-standalone-v4`.

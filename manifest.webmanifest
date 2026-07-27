@@ -4,8 +4,8 @@
   "description": "Cyfrowe archiwum fizycznej kolekcji filmów.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0A0C16",
-  "theme_color": "#0D1021",
+  "background_color": "#03050c",
+  "theme_color": "#03050c",
   "icons": [
     {
       "src": "movievault-design-icon-192.png",

@@ -1,9 +1,5 @@
-const CACHE_NAME = "movievault-collector-3.5.2-mobile-intro-fixed-v2";
-const ASSETS = [
-  "./movievault-design-icon-512.png?v=3.5.2-mobile-intro-fixed-v2",
-  "./movievault-design-icon-192.png?v=3.5.2-mobile-intro-fixed-v2",
-  "./movievault-design-apple-touch.png?v=3.5.2-mobile-intro-fixed-v2",
-  "./manifest.webmanifest?v=3.5.2-mobile-intro-fixed-v2","./", "./index.html", "./styles.css?v=3.5.2-mobile-intro-fixed-v2", "./app.js?v=3.5.2-mobile-intro-fixed-v2", "./manifest.webmanifest", "./movievault-design-logo.png", "./movievault-design-logo.png?v=3.5.2-mobile-intro-fixed-v2"];
+const CACHE_NAME = "movievault-collector-3.5.2-mobile-intro-standalone-v4";
+const ASSETS = ["./", "./index.html", "./styles.css?v=3.5.2-mobile-intro-standalone-v4", "./app.js?v=3.5.2-mobile-intro-standalone-v4", "./manifest.webmanifest", "./manifest.webmanifest?v=3.5.2-mobile-intro-standalone-v4", "./movievault-design-logo.png", "./movievault-design-logo.png?v=3.5.2-mobile-intro-standalone-v4", "./movievault-design-icon-192.png", "./movievault-design-icon-512.png", "./movievault-design-apple-touch.png", "./apple-splash-1320x2868.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-1290x2796.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-1179x2556.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-1284x2778.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-1125x2436.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-1242x2688.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-828x1792.png?v=3.5.2-mobile-intro-standalone-v4", "./apple-splash-750x1334.png?v=3.5.2-mobile-intro-standalone-v4"];
 
 self.addEventListener("install", event => {
   self.skipWaiting();
