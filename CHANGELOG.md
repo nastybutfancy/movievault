@@ -367,3 +367,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 - Replays the splash when iOS restores a persisted Home Screen session.
 - Added dark MovieVault Apple startup images for current iPhone portrait resolutions to eliminate the white launch flash.
 - Updated PWA cache revision to `movievault-collector-3.5.2-mobile-intro-standalone-v4`.
+
+## 3.5.3 — iOS Collection Stability
+- Ograniczono cache Service Workera do zasobów samej aplikacji.
+- Dodano renderowanie kolekcji partiami.
+- Wyłączono kosztowny backdrop-filter kart kolekcji na iOS/mobile.
+- Usunięto duplikowanie customCoverData w lokalnym cache kolekcji.
+- Ograniczono zbędne odświeżenia kolekcji na ekranie Home.

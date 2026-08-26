@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.2";
+const APP_VERSION = "3.5.3";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -7,6 +7,15 @@ const COLLECTOR_META_SUFFIX = "]]";
 const CUSTOM_COVER_STORAGE_PREFIX = "movievault.custom-cover.";
 let activeItemFilters = new Set();
 let activeMediaFilters = new Set();
+let collectionRenderLimit = 0;
+
+function collectionPageSize() {
+  return window.matchMedia && window.matchMedia("(max-width: 760px)").matches ? 36 : 96;
+}
+
+function resetCollectionRenderLimit() {
+  collectionRenderLimit = collectionPageSize();
+}
 
 function createUuid() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
@@ -392,7 +401,7 @@ async function createCollectionBackup(button) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "MovieVault_3.5.2_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.download = "MovieVault_3.5.3_Backup_" + backupDateStamp(createdAt) + ".json";
     link.style.display = "none";
 
     document.body.appendChild(link);
@@ -403,7 +412,7 @@ async function createCollectionBackup(button) {
       URL.revokeObjectURL(url);
     }, 1000);
 
-    collectionCache = hydrateCollection(movies);
+    collectionCache = hydrateCollection(response.movies);
     persistCollectionCache();
     renderHomeDashboard();
     renderStatsFromCollection();
@@ -443,6 +452,7 @@ function collectionSnapshot(movies) {
   return JSON.stringify((Array.isArray(movies) ? movies : []).map(function (movie) {
     const normalized = {};
     Object.keys(movie || {}).sort().forEach(function (key) {
+      if (key === "customCoverData") return;
       normalized[key] = movie[key];
     });
     return normalized;
@@ -456,6 +466,7 @@ async function loadHomeDashboard(force) {
   if (collectionCacheReady) {
     renderHomeDashboard();
     renderStatsFromCollection();
+    if (!force && collectionCacheIsFresh()) return;
   }
 
   try {
@@ -706,9 +717,32 @@ function restoreCollectionCache() {
   try {
     const saved = JSON.parse(localStorage.getItem(COLLECTION_STORAGE_KEY) || "null");
     if (!saved || !Array.isArray(saved.movies)) return false;
-    collectionCache = hydrateCollection(saved.movies);
+
+    collectionCache = saved.movies.map(function (rawMovie) {
+      const movie = Object.assign({}, rawMovie || {});
+
+      // Starsze wersje wkładały duże obrazy Base64 również do cache całej
+      // kolekcji. Na iOS powodowało to niepotrzebne skoki pamięci przy
+      // JSON.parse i renderowaniu. Przenosimy taki obraz do osobnego klucza
+      // i usuwamy duplikat z obiektu filmu.
+      if (movie.customCoverData && movie.uuid) {
+        try {
+          const coverKey = CUSTOM_COVER_STORAGE_PREFIX + movie.uuid;
+          if (!localStorage.getItem(coverKey)) localStorage.setItem(coverKey, movie.customCoverData);
+        } catch (coverError) {
+          console.warn("Nie udało się przenieść lokalnej okładki:", coverError);
+        }
+      }
+      delete movie.customCoverData;
+      return hydrateCollectorMovie(movie);
+    });
+
     collectionCacheSavedAt = Number(saved.savedAt) || 0;
     collectionCacheReady = true;
+
+    // Zapis od razu usuwa ciężkie duplikaty z historycznego cache, ale
+    // zachowuje pierwotny czas zapisu, żeby nie uznać starych danych za świeże.
+    persistCollectionCache(collectionCacheSavedAt);
     return true;
   } catch (error) {
     console.warn("Nie udało się odczytać lokalnej kolekcji:", error);
@@ -716,13 +750,19 @@ function restoreCollectionCache() {
   }
 }
 
-function persistCollectionCache() {
-  collectionCacheSavedAt = Date.now();
+function persistCollectionCache(savedAtOverride) {
+  collectionCacheSavedAt = Number.isFinite(Number(savedAtOverride)) && Number(savedAtOverride) > 0
+    ? Number(savedAtOverride)
+    : Date.now();
   collectionCacheReady = true;
   try {
     localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify({
       savedAt: collectionCacheSavedAt,
-      movies: collectionCache.map(function (movie) { return Object.assign({}, movie, { customCoverData: movie.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) || "" : "" }); })
+      movies: collectionCache.map(function (movie) {
+        const lightweightMovie = Object.assign({}, movie);
+        delete lightweightMovie.customCoverData;
+        return lightweightMovie;
+      })
     }));
   } catch (error) {
     console.warn("Nie udało się zapisać lokalnej kolekcji:", error);
@@ -861,7 +901,7 @@ document.addEventListener(
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("./sw.js")
+        .register("./sw.js?v=3.5.3-ios-stability1")
         .catch(console.error);
     }
   }
@@ -1019,12 +1059,14 @@ async function loadCollection(force) {
   }
 }
 
-function renderCollection() {
+function renderCollection(preserveLimit) {
   const filter =
     $("collectionFilter")
       .value
       .trim()
       .toLowerCase();
+
+  if (preserveLimit !== true || !collectionRenderLimit) resetCollectionRenderLimit();
 
   const sortedMovies = sortMoviesLocally(
     collectionCache,
@@ -1084,10 +1126,19 @@ function renderCollection() {
     return;
   }
 
+  const renderedMovies = visibleMovies.slice(0, collectionRenderLimit);
+  const remaining = Math.max(0, visibleMovies.length - renderedMovies.length);
+
   $("collectionResults").innerHTML =
-    visibleMovies
-      .map(collectionMovieCard)
-      .join("");
+    renderedMovies.map(collectionMovieCard).join("") +
+    (remaining
+      ? `<div class="collection-load-more"><button class="secondary-button" type="button" onclick="loadMoreCollection()">Pokaż więcej (${remaining})</button></div>`
+      : "");
+}
+
+function loadMoreCollection() {
+  collectionRenderLimit += collectionPageSize();
+  renderCollection(true);
 }
 
 function collectionMovieCard(movie) {
@@ -1095,7 +1146,7 @@ function collectionMovieCard(movie) {
   const year = movie.year ? escapeHtml(movie.year) : "—";
   const activePoster = effectivePoster(movie);
   const cover = activePoster
-    ? `<img class="collection-cover" src="${escapeHtml(activePoster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
+    ? `<img class="collection-cover" src="${escapeHtml(activePoster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy" decoding="async" fetchpriority="low">`
     : `<div class="collection-cover-placeholder">🎬</div>`;
 
   const barcode = movieKey(movie);

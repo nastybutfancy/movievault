@@ -24,7 +24,7 @@ DVD • Blu-ray • 4K Ultra HD • VHS • Steelbooks • Collector's Editions
 
 <p align="center">
 
-<img src="https://img.shields.io/badge/version-3.5.2-8A2BE2?style=for-the-badge">
+<img src="https://img.shields.io/badge/version-3.5.3-8A2BE2?style=for-the-badge">
 <img src="https://img.shields.io/badge/PWA-Ready-5D3FD3?style=for-the-badge">
 <img src="https://img.shields.io/badge/Mobile-Optimized-3B82F6?style=for-the-badge">
 <img src="https://img.shields.io/badge/Google%20Apps%20Script-Backend-34A853?style=for-the-badge">
@@ -159,19 +159,16 @@ MovieVault is built using:
 
 # 📈 Current Version
 
-## MovieVault 3.5.2
+## MovieVault 3.5.3
 
 ### What's New
 
-- Mobile UI redesign
-- Improved iPhone support
-- Responsive collection grid
-- Enhanced logo
-- Better typography
-- Faster cache updates
-- Refined cards
-- Improved animations
-- Optimized performance
+- Fixed Safari/iPhone crashes when opening large collections
+- Service Worker no longer stores external posters or unique API requests
+- Collection rendering is batched for lower memory usage
+- Reduced GPU-heavy glass effects on mobile collection cards
+- Leaner local cache for custom covers
+- Fewer unnecessary collection refreshes on Home
 
 ---
 

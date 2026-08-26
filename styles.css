@@ -1645,3 +1645,31 @@ input:focus,select:focus,textarea:focus { border-color:rgba(181,92,255,.72); box
     transform: none;
   }
 }
+
+/* =========================================================
+   MOVIEVAULT 3.5.3 — iOS COLLECTION STABILITY
+   Ograniczamy liczbę ciężkich warstw GPU w dużych siatkach.
+   ========================================================= */
+.collection-load-more {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 8px;
+}
+.collection-load-more .secondary-button {
+  min-width: min(280px, 100%);
+}
+
+@media (max-width: 760px) {
+  .collection-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: linear-gradient(145deg, rgba(20,26,54,.96), rgba(8,12,26,.98)) !important;
+    box-shadow: inset 0 1px rgba(255,255,255,.03), 0 8px 20px rgba(0,0,0,.20) !important;
+  }
+
+  .collection-card:hover,
+  .collection-card:focus {
+    transform: none !important;
+  }
+}
