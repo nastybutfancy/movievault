@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.3";
+const APP_VERSION = "3.5.4";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -231,8 +231,7 @@ async function importCollectionBackup(file) {
       throw new Error("To nie jest prawidłowa kopia zapasowa MovieVault.");
     }
 
-    const currentResponse = await apiRequest("collection", { sort: "newest" });
-    const currentMovies = hydrateCollection(currentResponse.movies);
+    const currentMovies = await fetchCollectionPaged({ forceNew: true });
     const existingUuids = new Set(currentMovies.map(function (movie) { return String(movie.uuid || "").trim(); }).filter(Boolean));
     const legacyBarcodeMatches = new Map();
     currentMovies.forEach(function (movie) {
@@ -263,8 +262,8 @@ async function importCollectionBackup(file) {
       imported.push(movie);
     }
 
-    const refreshed = await apiRequest("collection", { sort: "newest" });
-    collectionCache = Array.isArray(refreshed.movies) ? hydrateCollection(refreshed.movies) : hydrateCollection(imported);
+    const refreshedMovies = await fetchCollectionPaged({ forceNew: true });
+    collectionCache = Array.isArray(refreshedMovies) && refreshedMovies.length ? refreshedMovies : hydrateCollection(imported);
     persistCollectionCache();
     renderHomeDashboard();
     renderStatsFromCollection();
@@ -369,8 +368,7 @@ async function createCollectionBackup(button) {
       `;
     }
 
-    const response = await apiRequest("collection", { sort: "newest" });
-    const movies = hydrateCollection(response.movies).map(function (movie) {
+    const movies = (await fetchCollectionPaged({ forceNew: true })).map(function (movie) {
       return Object.assign({}, movie, { customCoverData: movie.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) || "" : "" });
     });
 
@@ -392,7 +390,7 @@ async function createCollectionBackup(button) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "MovieVault_3.5.2_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.download = "MovieVault_3.5.4_Backup_" + backupDateStamp(createdAt) + ".json";
     link.style.display = "none";
 
     document.body.appendChild(link);
@@ -460,8 +458,7 @@ async function loadHomeDashboard(force) {
   }
 
   try {
-    const response = await apiRequest("collection", { sort: "newest" });
-    const freshMovies = hydrateCollection(response.movies);
+    const freshMovies = await fetchCollectionPaged({ forceNew: Boolean(force) });
     const collectionChanged = !collectionCacheReady || collectionSnapshot(collectionCache) !== collectionSnapshot(freshMovies);
 
     collectionCache = freshMovies;
@@ -876,10 +873,11 @@ document.addEventListener(
   }
 );
 
-function apiRequest(
-  action,
-  parameters = {}
-) {
+function delay(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+function apiRequestOnce(action, parameters = {}) {
   return new Promise(function (resolve, reject) {
     const callbackName =
       "movieVaultCallback_" +
@@ -894,22 +892,22 @@ function apiRequest(
       ...parameters
     });
 
-    // Google Apps Script potrafi mieć zimny start, szczególnie na iOS/PWA.
-    // Operacje zapisujące dostają jeszcze większy zapas czasu, aby nie pokazywać
-    // fałszywego błędu po tym, jak rekord został już zapisany w Arkuszu.
     const writeActions = new Set(["add", "update", "delete"]);
-    const timeoutMs = writeActions.has(action) ? 60000 : 45000;
+    const fastReadActions = new Set(["collectionPage", "stats", "find", "search", "tmdbSearch", "tmdbMovie"]);
+    const timeoutMs = writeActions.has(action) ? 45000 : (fastReadActions.has(action) ? 25000 : 35000);
     let settled = false;
 
     const timeout = setTimeout(function () {
       if (settled) return;
       settled = true;
       cleanup();
-      reject(new Error(
+      const error = new Error(
         writeActions.has(action)
-          ? "Serwer odpowiada zbyt długo. Nie klikaj ponownie od razu — MovieVault zachowa ten sam identyfikator zapisu przy ponownej próbie."
-          : "Serwer odpowiada zbyt długo. Spróbuj ponownie za chwilę."
-      ));
+          ? "Serwer odpowiada zbyt długo. Zapis ma zabezpieczenie przed duplikatami, więc możesz spróbować ponownie po chwili."
+          : "Serwer odpowiada zbyt długo. Ponawiam połączenie…"
+      );
+      error.transient = true;
+      reject(error);
     }, timeoutMs);
 
     function cleanup() {
@@ -924,7 +922,9 @@ function apiRequest(
       cleanup();
 
       if (data && data.success === false) {
-        reject(new Error(data.message || "Wystąpił błąd API."));
+        const error = new Error(data.message || "Wystąpił błąd API.");
+        error.transient = /chwilowo|timeout|czas|429|5\d\d/i.test(error.message);
+        reject(error);
         return;
       }
 
@@ -935,11 +935,13 @@ function apiRequest(
       if (settled) return;
       settled = true;
       cleanup();
-      reject(new Error(
+      const error = new Error(
         navigator.onLine === false
           ? "Brak połączenia z internetem."
-          : "Nie udało się połączyć z Arkuszem Google. Spróbuj ponownie za chwilę."
-      ));
+          : "Nie udało się połączyć z Arkuszem Google."
+      );
+      error.transient = navigator.onLine !== false;
+      reject(error);
     };
 
     script.async = true;
@@ -947,6 +949,68 @@ function apiRequest(
     script.src = API_URL + "?" + query.toString();
     document.body.appendChild(script);
   });
+}
+
+async function apiRequest(action, parameters = {}) {
+  const retryableActions = new Set([
+    "collectionPage", "stats", "find", "metadata", "search", "tmdbSearch", "tmdbMovie"
+  ]);
+  const attempts = retryableActions.has(action) ? 2 : 1;
+  let lastError;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await apiRequestOnce(action, parameters);
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 >= attempts || error.transient === false || navigator.onLine === false) break;
+      await delay(350);
+    }
+  }
+
+  throw lastError || new Error("Nie udało się połączyć z serwerem.");
+}
+
+const COLLECTION_PAGE_SIZE = 100;
+let collectionFetchPromise = null;
+
+async function fetchCollectionPaged(options = {}) {
+  if (collectionFetchPromise && !options.forceNew) return collectionFetchPromise;
+
+  const onProgress = typeof options.onProgress === "function" ? options.onProgress : function () {};
+
+  const task = (async function () {
+    const first = await apiRequest("collectionPage", { offset: 0, limit: COLLECTION_PAGE_SIZE });
+    const totalRows = Math.max(0, Number(first.totalRows) || 0);
+    let movies = Array.isArray(first.movies) ? first.movies.slice() : [];
+    onProgress(Math.min(totalRows, COLLECTION_PAGE_SIZE), totalRows);
+
+    if (totalRows > COLLECTION_PAGE_SIZE) {
+      const offsets = [];
+      for (let offset = COLLECTION_PAGE_SIZE; offset < totalRows; offset += COLLECTION_PAGE_SIZE) offsets.push(offset);
+
+      let completedRows = Math.min(totalRows, COLLECTION_PAGE_SIZE);
+      const pages = await Promise.all(offsets.map(async function (offset) {
+        const page = await apiRequest("collectionPage", { offset: offset, limit: COLLECTION_PAGE_SIZE });
+        completedRows = Math.min(totalRows, completedRows + Math.min(COLLECTION_PAGE_SIZE, totalRows - offset));
+        onProgress(completedRows, totalRows);
+        return page;
+      }));
+
+      pages.forEach(function (page) {
+        if (Array.isArray(page.movies)) movies = movies.concat(page.movies);
+      });
+    }
+
+    return hydrateCollection(movies);
+  })();
+
+  collectionFetchPromise = task;
+  try {
+    return await task;
+  } finally {
+    if (collectionFetchPromise === task) collectionFetchPromise = null;
+  }
 }
 
 function normalizeBarcode(value) {
@@ -994,8 +1058,15 @@ async function loadCollection(force) {
   if (!force && collectionCacheIsFresh()) return;
 
   try {
-    const response = await apiRequest("collection", { sort: "newest" });
-    collectionCache = hydrateCollection(response.movies);
+    const freshMovies = await fetchCollectionPaged({
+      forceNew: Boolean(force),
+      onProgress: function (loaded, total) {
+        if (!collectionCacheReady && total) {
+          $("collectionCount").textContent = "Pobieram kolekcję: " + Math.min(loaded, total) + " / " + total;
+        }
+      }
+    });
+    collectionCache = freshMovies;
     persistCollectionCache();
     renderCollection();
     renderHomeDashboard();
@@ -1617,6 +1688,31 @@ function prepareAdd(barcode) {
   $("title").focus();
 }
 
+const tmdbSearchRequestCache = new Map();
+const tmdbMovieRequestCache = new Map();
+
+function tmdbSearchCacheKey(title, year, itemType) {
+  return [String(itemType || "Film").toLowerCase(), String(title || "").trim().toLocaleLowerCase("pl-PL"), String(year || "").trim()].join("|");
+}
+
+function cachedTmdbSearch(title, year, itemType) {
+  const key = tmdbSearchCacheKey(title, year, itemType);
+  if (tmdbSearchRequestCache.has(key)) return tmdbSearchRequestCache.get(key);
+  const request = apiRequest("tmdbSearch", { query: title, year: year, itemType: itemType })
+    .catch(function (error) { tmdbSearchRequestCache.delete(key); throw error; });
+  tmdbSearchRequestCache.set(key, request);
+  return request;
+}
+
+function cachedTmdbMovie(tmdbId, itemType) {
+  const key = String(itemType || "Film").toLowerCase() + "|" + String(tmdbId || "");
+  if (tmdbMovieRequestCache.has(key)) return tmdbMovieRequestCache.get(key);
+  const request = apiRequest("tmdbMovie", { id: tmdbId, itemType: itemType })
+    .catch(function (error) { tmdbMovieRequestCache.delete(key); throw error; });
+  tmdbMovieRequestCache.set(key, request);
+  return request;
+}
+
 async function searchTmdb() {
   const title =
     $("title").value.trim();
@@ -1650,15 +1746,7 @@ async function searchTmdb() {
   $("tmdbResults").innerHTML = "";
 
   try {
-    const response =
-      await apiRequest(
-        "tmdbSearch",
-        {
-          query: title,
-          year: year,
-          itemType: $("itemType").value
-        }
-      );
+    const response = await cachedTmdbSearch(title, year, $("itemType").value);
 
     tmdbResultsCache =
       Array.isArray(response.movies)
@@ -1666,6 +1754,12 @@ async function searchTmdb() {
         : [];
 
     renderTmdbResults();
+
+    // Najczęściej właściwy wynik jest pierwszy. Pobieramy jego szczegóły w tle,
+    // aby kliknięcie wyniku było niemal natychmiastowe.
+    if (tmdbResultsCache[0] && tmdbResultsCache[0].tmdbId) {
+      cachedTmdbMovie(tmdbResultsCache[0].tmdbId, $("itemType").value).catch(function () {});
+    }
   } catch (error) {
     $("tmdbStatus").innerHTML = `
       <div class="movie owned">
@@ -1780,14 +1874,7 @@ async function selectTmdbMovie(index) {
   `;
 
   try {
-    const response =
-      await apiRequest(
-        "tmdbMovie",
-        {
-          id: selected.tmdbId,
-          itemType: $("itemType").value
-        }
-      );
+    const response = await cachedTmdbMovie(selected.tmdbId, $("itemType").value);
 
     selectedTmdbMovie =
       response.movie || selected;

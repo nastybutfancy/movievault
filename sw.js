@@ -1,13 +1,13 @@
-const CACHE_NAME = "movievault-collector-3.5.3-connectivity-fix";
+const CACHE_NAME = "movievault-collector-3.5.4-performance-fix";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=3.5.3-connectivity-fix",
-  "./app.js?v=3.5.3-connectivity-fix",
-  "./manifest.webmanifest?v=3.5.3-connectivity-fix",
-  "./movievault-design-icon-512.png?v=3.5.3-connectivity-fix",
-  "./movievault-design-icon-192.png?v=3.5.3-connectivity-fix",
-  "./movievault-design-apple-touch.png?v=3.5.3-connectivity-fix",
+  "./styles.css?v=3.5.4-performance-fix",
+  "./app.js?v=3.5.4-performance-fix",
+  "./manifest.webmanifest?v=3.5.4-performance-fix",
+  "./movievault-design-icon-512.png?v=3.5.4-performance-fix",
+  "./movievault-design-icon-192.png?v=3.5.4-performance-fix",
+  "./movievault-design-apple-touch.png?v=3.5.4-performance-fix",
   "./movievault-design-logo.png"
 ];
 
