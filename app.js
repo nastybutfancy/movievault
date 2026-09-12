@@ -7,15 +7,6 @@ const COLLECTOR_META_SUFFIX = "]]";
 const CUSTOM_COVER_STORAGE_PREFIX = "movievault.custom-cover.";
 let activeItemFilters = new Set();
 let activeMediaFilters = new Set();
-let collectionRenderLimit = 0;
-
-function collectionPageSize() {
-  return window.matchMedia && window.matchMedia("(max-width: 760px)").matches ? 36 : 96;
-}
-
-function resetCollectionRenderLimit() {
-  collectionRenderLimit = collectionPageSize();
-}
 
 function createUuid() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
@@ -401,7 +392,7 @@ async function createCollectionBackup(button) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "MovieVault_3.5.3_Backup_" + backupDateStamp(createdAt) + ".json";
+    link.download = "MovieVault_3.5.2_Backup_" + backupDateStamp(createdAt) + ".json";
     link.style.display = "none";
 
     document.body.appendChild(link);
@@ -412,7 +403,7 @@ async function createCollectionBackup(button) {
       URL.revokeObjectURL(url);
     }, 1000);
 
-    collectionCache = hydrateCollection(response.movies);
+    collectionCache = hydrateCollection(movies);
     persistCollectionCache();
     renderHomeDashboard();
     renderStatsFromCollection();
@@ -452,7 +443,6 @@ function collectionSnapshot(movies) {
   return JSON.stringify((Array.isArray(movies) ? movies : []).map(function (movie) {
     const normalized = {};
     Object.keys(movie || {}).sort().forEach(function (key) {
-      if (key === "customCoverData") return;
       normalized[key] = movie[key];
     });
     return normalized;
@@ -695,7 +685,7 @@ document.addEventListener("DOMContentLoaded", setupCollectorExperience);
 
 
 const API_URL =
-  "https://script.google.com/macros/s/AKfycbyQTE2JyHjVngVHs-OlLIuMHknWa-u81Jx-jG8sJ1K8WpbQi5NZYDvRHOLy2C1gFzoKTQ/exec";
+  "https://script.google.com/macros/s/AKfycbyJXgemVGbTbk7JC7Q_2xUSfd3iYa5tzIowmcVStyv94Z-s5971O9K8fSq0SSEsNDQ7uQ/exec";
 
 let codeReader = null;
 let scannerControls = null;
@@ -709,6 +699,16 @@ let collectionCacheReady = false;
 let collectionCacheSavedAt = 0;
 let editingBarcode = "";
 let editingUuid = "";
+let pendingAddUuid = "";
+
+function getPendingAddUuid() {
+  if (!pendingAddUuid) pendingAddUuid = createUuid();
+  return pendingAddUuid;
+}
+
+function resetPendingAddUuid() {
+  pendingAddUuid = "";
+}
 
 const COLLECTION_STORAGE_KEY = "movievault.collection.v1";
 const COLLECTION_CACHE_MAX_AGE = 5 * 60 * 1000;
@@ -717,32 +717,9 @@ function restoreCollectionCache() {
   try {
     const saved = JSON.parse(localStorage.getItem(COLLECTION_STORAGE_KEY) || "null");
     if (!saved || !Array.isArray(saved.movies)) return false;
-
-    collectionCache = saved.movies.map(function (rawMovie) {
-      const movie = Object.assign({}, rawMovie || {});
-
-      // Starsze wersje wkładały duże obrazy Base64 również do cache całej
-      // kolekcji. Na iOS powodowało to niepotrzebne skoki pamięci przy
-      // JSON.parse i renderowaniu. Przenosimy taki obraz do osobnego klucza
-      // i usuwamy duplikat z obiektu filmu.
-      if (movie.customCoverData && movie.uuid) {
-        try {
-          const coverKey = CUSTOM_COVER_STORAGE_PREFIX + movie.uuid;
-          if (!localStorage.getItem(coverKey)) localStorage.setItem(coverKey, movie.customCoverData);
-        } catch (coverError) {
-          console.warn("Nie udało się przenieść lokalnej okładki:", coverError);
-        }
-      }
-      delete movie.customCoverData;
-      return hydrateCollectorMovie(movie);
-    });
-
+    collectionCache = hydrateCollection(saved.movies);
     collectionCacheSavedAt = Number(saved.savedAt) || 0;
     collectionCacheReady = true;
-
-    // Zapis od razu usuwa ciężkie duplikaty z historycznego cache, ale
-    // zachowuje pierwotny czas zapisu, żeby nie uznać starych danych za świeże.
-    persistCollectionCache(collectionCacheSavedAt);
     return true;
   } catch (error) {
     console.warn("Nie udało się odczytać lokalnej kolekcji:", error);
@@ -750,19 +727,13 @@ function restoreCollectionCache() {
   }
 }
 
-function persistCollectionCache(savedAtOverride) {
-  collectionCacheSavedAt = Number.isFinite(Number(savedAtOverride)) && Number(savedAtOverride) > 0
-    ? Number(savedAtOverride)
-    : Date.now();
+function persistCollectionCache() {
+  collectionCacheSavedAt = Date.now();
   collectionCacheReady = true;
   try {
     localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify({
       savedAt: collectionCacheSavedAt,
-      movies: collectionCache.map(function (movie) {
-        const lightweightMovie = Object.assign({}, movie);
-        delete lightweightMovie.customCoverData;
-        return lightweightMovie;
-      })
+      movies: collectionCache.map(function (movie) { return Object.assign({}, movie, { customCoverData: movie.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) || "" : "" }); })
     }));
   } catch (error) {
     console.warn("Nie udało się zapisać lokalnej kolekcji:", error);
@@ -897,11 +868,9 @@ document.addEventListener(
       }
     );
 
-    updateStats();
-
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("./sw.js?v=3.5.3-ios-stability1")
+        .register("./sw.js")
         .catch(console.error);
     }
   }
@@ -911,91 +880,73 @@ function apiRequest(
   action,
   parameters = {}
 ) {
-  return new Promise(
-    function (resolve, reject) {
-      const callbackName =
-        "movieVaultCallback_" +
-        Date.now() +
-        "_" +
-        Math.floor(
-          Math.random() * 100000
-        );
+  return new Promise(function (resolve, reject) {
+    const callbackName =
+      "movieVaultCallback_" +
+      Date.now() +
+      "_" +
+      Math.floor(Math.random() * 100000);
 
-      const script =
-        document.createElement("script");
+    const script = document.createElement("script");
+    const query = new URLSearchParams({
+      action: action,
+      callback: callbackName,
+      ...parameters
+    });
 
-      const query =
-        new URLSearchParams({
-          action: action,
-          callback: callbackName,
-          ...parameters
-        });
+    // Google Apps Script potrafi mieć zimny start, szczególnie na iOS/PWA.
+    // Operacje zapisujące dostają jeszcze większy zapas czasu, aby nie pokazywać
+    // fałszywego błędu po tym, jak rekord został już zapisany w Arkuszu.
+    const writeActions = new Set(["add", "update", "delete"]);
+    const timeoutMs = writeActions.has(action) ? 60000 : 45000;
+    let settled = false;
 
-      const timeout =
-        setTimeout(
-          function () {
-            cleanup();
+    const timeout = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(
+        writeActions.has(action)
+          ? "Serwer odpowiada zbyt długo. Nie klikaj ponownie od razu — MovieVault zachowa ten sam identyfikator zapisu przy ponownej próbie."
+          : "Serwer odpowiada zbyt długo. Spróbuj ponownie za chwilę."
+      ));
+    }, timeoutMs);
 
-            reject(
-              new Error(
-                "Serwer nie odpowiedział."
-              )
-            );
-          },
-          20000
-        );
+    function cleanup() {
+      clearTimeout(timeout);
+      if (script.parentNode) script.parentNode.removeChild(script);
+      try { delete window[callbackName]; } catch (error) { window[callbackName] = undefined; }
+    }
 
-      function cleanup() {
-        clearTimeout(timeout);
+    window[callbackName] = function (data) {
+      if (settled) return;
+      settled = true;
+      cleanup();
 
-        if (script.parentNode) {
-          script.parentNode.removeChild(
-            script
-          );
-        }
-
-        delete window[callbackName];
+      if (data && data.success === false) {
+        reject(new Error(data.message || "Wystąpił błąd API."));
+        return;
       }
 
-      window[callbackName] =
-        function (data) {
-          cleanup();
+      resolve(data);
+    };
 
-          if (
-            data &&
-            data.success === false
-          ) {
-            reject(
-              new Error(
-                data.message ||
-                "Wystąpił błąd API."
-              )
-            );
+    script.onerror = function () {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(
+        navigator.onLine === false
+          ? "Brak połączenia z internetem."
+          : "Nie udało się połączyć z Arkuszem Google. Spróbuj ponownie za chwilę."
+      ));
+    };
 
-            return;
-          }
-
-          resolve(data);
-        };
-
-      script.onerror = function () {
-        cleanup();
-
-        reject(
-          new Error(
-            "Nie udało się połączyć z Arkuszem Google."
-          )
-        );
-      };
-
-      script.src =
-        API_URL +
-        "?" +
-        query.toString();
-
-      document.body.appendChild(script);
-    }
-  );
+    script.async = true;
+    script.referrerPolicy = "no-referrer";
+    script.src = API_URL + "?" + query.toString();
+    document.body.appendChild(script);
+  });
 }
 
 function normalizeBarcode(value) {
@@ -1059,14 +1010,12 @@ async function loadCollection(force) {
   }
 }
 
-function renderCollection(preserveLimit) {
+function renderCollection() {
   const filter =
     $("collectionFilter")
       .value
       .trim()
       .toLowerCase();
-
-  if (preserveLimit !== true || !collectionRenderLimit) resetCollectionRenderLimit();
 
   const sortedMovies = sortMoviesLocally(
     collectionCache,
@@ -1126,19 +1075,10 @@ function renderCollection(preserveLimit) {
     return;
   }
 
-  const renderedMovies = visibleMovies.slice(0, collectionRenderLimit);
-  const remaining = Math.max(0, visibleMovies.length - renderedMovies.length);
-
   $("collectionResults").innerHTML =
-    renderedMovies.map(collectionMovieCard).join("") +
-    (remaining
-      ? `<div class="collection-load-more"><button class="secondary-button" type="button" onclick="loadMoreCollection()">Pokaż więcej (${remaining})</button></div>`
-      : "");
-}
-
-function loadMoreCollection() {
-  collectionRenderLimit += collectionPageSize();
-  renderCollection(true);
+    visibleMovies
+      .map(collectionMovieCard)
+      .join("");
 }
 
 function collectionMovieCard(movie) {
@@ -1146,7 +1086,7 @@ function collectionMovieCard(movie) {
   const year = movie.year ? escapeHtml(movie.year) : "—";
   const activePoster = effectivePoster(movie);
   const cover = activePoster
-    ? `<img class="collection-cover" src="${escapeHtml(activePoster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy" decoding="async" fetchpriority="low">`
+    ? `<img class="collection-cover" src="${escapeHtml(activePoster)}" alt="Okładka filmu ${escapeHtml(movie.title || "")}" loading="lazy">`
     : `<div class="collection-cover-placeholder">🎬</div>`;
 
   const barcode = movieKey(movie);
@@ -1266,6 +1206,7 @@ function editCollectionMovie(barcode) {
 
   editingUuid = String(movie.uuid || "");
   editingBarcode = normalizeBarcode(movie.barcode);
+  resetPendingAddUuid();
   window.movieVaultPendingCustomCover = "";
   closeMovieDetails();
   showOnly("addPanel");
@@ -1660,6 +1601,7 @@ function renderScanResult(
 function prepareAdd(barcode) {
   editingBarcode = "";
   editingUuid = "";
+  resetPendingAddUuid();
   window.movieVaultPendingCustomCover = "";
   showOnly("addPanel");
 
@@ -1957,7 +1899,7 @@ async function addMovie() {
  const enteredBarcode = normalizeBarcode($("barcode").value);
  const existingEditing = editingUuid ? collectionCache.find(function (item) { return String(item.uuid || "") === editingUuid; }) : null;
  const movie = {
-  uuid: existingEditing?.uuid || createUuid(),
+  uuid: existingEditing?.uuid || getPendingAddUuid(),
   catalogBarcode: enteredBarcode,
   barcode: enteredBarcode || existingEditing?.barcode || generateInternalBarcode(),
   originalBarcode: editingBarcode || "",
@@ -2104,6 +2046,7 @@ async function addMovie() {
     resetTmdbSelection();
     editingBarcode = "";
     editingUuid = "";
+    if (action === "add") resetPendingAddUuid();
     $("saveButton").textContent = "Zapisz pozycję";
 
     alert(
