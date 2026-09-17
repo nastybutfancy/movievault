@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.6";
+const APP_VERSION = "3.5.7";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -690,7 +690,7 @@ document.addEventListener("DOMContentLoaded", setupCollectorExperience);
 
 
 const API_URL =
-  "https://script.google.com/macros/s/AKfycbyJXgemVGbTbk7JC7Q_2xUSfd3iYa5tzIowmcVStyv94Z-s5971O9K8fSq0SSEsNDQ7uQ/exec";
+  "https://script.google.com/macros/s/AKfycbxgqpCy7_OAVmBaMxJcSTZEvVmspZRUEWDrx5z0k8e77szKQ8ZI9oaaelzY9JZPkW9Wfg/exec";
 
 let codeReader = null;
 let scannerControls = null;

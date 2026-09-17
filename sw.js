@@ -1,13 +1,13 @@
-const CACHE_NAME = "movievault-collector-3.5.6-mobile-stability";
+const CACHE_NAME = "movievault-collector-3.5.7-new-endpoint";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=3.5.6-mobile-stability",
-  "./app.js?v=3.5.6-mobile-stability",
-  "./manifest.webmanifest?v=3.5.6-mobile-stability",
-  "./movievault-design-icon-512.png?v=3.5.6-mobile-stability",
-  "./movievault-design-icon-192.png?v=3.5.6-mobile-stability",
-  "./movievault-design-apple-touch.png?v=3.5.6-mobile-stability",
+  "./styles.css?v=3.5.7-new-endpoint",
+  "./app.js?v=3.5.7-new-endpoint",
+  "./manifest.webmanifest?v=3.5.7-new-endpoint",
+  "./movievault-design-icon-512.png?v=3.5.7-new-endpoint",
+  "./movievault-design-icon-192.png?v=3.5.7-new-endpoint",
+  "./movievault-design-apple-touch.png?v=3.5.7-new-endpoint",
   "./movievault-design-logo.png"
 ];
 
