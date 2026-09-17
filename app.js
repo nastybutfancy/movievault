@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.4";
+const APP_VERSION = "3.5.5";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -86,6 +86,15 @@ function prepareMovieForApi(movie) {
   copy.barcode = copy.catalogBarcode || normalizeBarcode(copy.barcode) || generateInternalBarcode();
   copy.notes = String(copy.notes || "").trim();
   delete copy.customCoverData;
+
+  // Google Apps Script jest wywoływany przez JSONP (GET). Wysyłanie w adresie
+  // całego opisu, obsady, gatunków, tła i zwiastuna potrafi przekroczyć limit
+  // długości URL w Safari/iOS. Szczegóły wybranego filmu są już zapisane w
+  // cache backendu po tmdbMovie, więc przy zapisie wystarczy identyfikator.
+  if (copy.tmdbId) {
+    ["description", "director", "genres", "cast", "backdrop", "runtime", "voteAverage", "trailer"]
+      .forEach(function (key) { delete copy[key]; });
+  }
   return copy;
 }
 
