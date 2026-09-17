@@ -1,5 +1,5 @@
 const HOME_PANEL_ID = "homePanel";
-const APP_VERSION = "3.5.5";
+const APP_VERSION = "3.5.6";
 
 
 const COLLECTOR_META_PREFIX = "\n\n[[MOVIEVAULT-COLLECTOR-V1:";
@@ -468,19 +468,18 @@ async function loadHomeDashboard(force) {
 
   try {
     const freshMovies = await fetchCollectionPaged({ forceNew: Boolean(force) });
-    const collectionChanged = !collectionCacheReady || collectionSnapshot(collectionCache) !== collectionSnapshot(freshMovies);
 
     collectionCache = freshMovies;
     persistCollectionCache();
 
-    if (collectionChanged || force) {
-      renderHomeDashboard();
-      renderStatsFromCollection();
-      const collectionPanel = safeElement("collectionPanel");
-      if (collectionPanel && !collectionPanel.classList.contains("hidden")) renderCollection();
-      const wishlistPanel = safeElement("wishlistPanel");
-      if (wishlistPanel && !wishlistPanel.classList.contains("hidden")) renderWishlist();
-    }
+    // Nie porównujemy pełnych kolekcji przez JSON.stringify — przy setkach
+    // opisów i okładek tworzyło to dwie ogromne kopie danych w pamięci Safari.
+    renderHomeDashboard();
+    renderStatsFromCollection();
+    const collectionPanel = safeElement("collectionPanel");
+    if (collectionPanel && !collectionPanel.classList.contains("hidden")) renderCollection();
+    const wishlistPanel = safeElement("wishlistPanel");
+    if (wishlistPanel && !wishlistPanel.classList.contains("hidden")) renderWishlist();
   } catch (error) {
     if (!collectionCacheReady) {
       recentNode.innerHTML = '<div class="loading-card">Nie udało się pobrać kolekcji.</div>';
@@ -717,7 +716,10 @@ function resetPendingAddUuid() {
 }
 
 const COLLECTION_STORAGE_KEY = "movievault.collection.v1";
-const COLLECTION_CACHE_MAX_AGE = 5 * 60 * 1000;
+// Kolekcja zmienia się wyłącznie przez tę aplikację, a po zapisie lokalny cache
+// jest aktualizowany od razu. Rzadkie odświeżanie usuwa zbędną kolejkę żądań,
+// która wcześniej mogła blokować wyszukiwanie TMDb po uruchomieniu aplikacji.
+const COLLECTION_CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
 
 function restoreCollectionCache() {
   try {
@@ -739,7 +741,14 @@ function persistCollectionCache() {
   try {
     localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify({
       savedAt: collectionCacheSavedAt,
-      movies: collectionCache.map(function (movie) { return Object.assign({}, movie, { customCoverData: movie.uuid ? localStorage.getItem(CUSTOM_COVER_STORAGE_PREFIX + movie.uuid) || "" : "" }); })
+      // Okładki z plików są już przechowywane osobno pod własnym kluczem.
+      // Ich ponowne kopiowanie do jednego wielkiego JSON-a potrafiło wyczerpać
+      // pamięć Safari i doprowadzić do komunikatu „Wielokrotnie wystąpił problem”.
+      movies: collectionCache.map(function (movie) {
+        const cachedMovie = Object.assign({}, movie);
+        delete cachedMovie.customCoverData;
+        return cachedMovie;
+      })
     }));
   } catch (error) {
     console.warn("Nie udało się zapisać lokalnej kolekcji:", error);
@@ -810,12 +819,12 @@ document.addEventListener(
 
     $("collectionFilter").addEventListener(
       "input",
-      renderCollection
+      function () { collectionRenderLimit = COLLECTION_RENDER_STEP; renderCollection(); }
     );
 
     $("collectionSort").addEventListener(
       "change",
-      renderCollection
+      function () { collectionRenderLimit = COLLECTION_RENDER_STEP; renderCollection(); }
     );
 
     $("searchButton").addEventListener(
@@ -980,8 +989,10 @@ async function apiRequest(action, parameters = {}) {
   throw lastError || new Error("Nie udało się połączyć z serwerem.");
 }
 
-const COLLECTION_PAGE_SIZE = 100;
+const COLLECTION_PAGE_SIZE = 150;
+const COLLECTION_RENDER_STEP = 60;
 let collectionFetchPromise = null;
+let collectionRenderLimit = COLLECTION_RENDER_STEP;
 
 async function fetchCollectionPaged(options = {}) {
   if (collectionFetchPromise && !options.forceNew) return collectionFetchPromise;
@@ -995,20 +1006,14 @@ async function fetchCollectionPaged(options = {}) {
     onProgress(Math.min(totalRows, COLLECTION_PAGE_SIZE), totalRows);
 
     if (totalRows > COLLECTION_PAGE_SIZE) {
-      const offsets = [];
-      for (let offset = COLLECTION_PAGE_SIZE; offset < totalRows; offset += COLLECTION_PAGE_SIZE) offsets.push(offset);
-
-      let completedRows = Math.min(totalRows, COLLECTION_PAGE_SIZE);
-      const pages = await Promise.all(offsets.map(async function (offset) {
+      // Pobieramy strony kolejno. Promise.all uruchamiał wiele instancji Apps
+      // Script naraz, blokował TMDb i potrafił zawiesić Safari na iPhonie.
+      for (let offset = COLLECTION_PAGE_SIZE; offset < totalRows; offset += COLLECTION_PAGE_SIZE) {
         const page = await apiRequest("collectionPage", { offset: offset, limit: COLLECTION_PAGE_SIZE });
-        completedRows = Math.min(totalRows, completedRows + Math.min(COLLECTION_PAGE_SIZE, totalRows - offset));
-        onProgress(completedRows, totalRows);
-        return page;
-      }));
-
-      pages.forEach(function (page) {
         if (Array.isArray(page.movies)) movies = movies.concat(page.movies);
-      });
+        onProgress(Math.min(totalRows, offset + COLLECTION_PAGE_SIZE), totalRows);
+        await delay(40);
+      }
     }
 
     return hydrateCollection(movies);
@@ -1048,6 +1053,7 @@ function showOnly(panelId) {
 }
 
 async function openCollection() {
+  collectionRenderLimit = COLLECTION_RENDER_STEP;
   showOnly("collectionPanel");
   await loadCollection();
 }
@@ -1155,10 +1161,21 @@ function renderCollection() {
     return;
   }
 
+  const renderedMovies = visibleMovies.slice(0, collectionRenderLimit);
+  const hasMore = renderedMovies.length < visibleMovies.length;
+
   $("collectionResults").innerHTML =
-    visibleMovies
+    renderedMovies
       .map(collectionMovieCard)
-      .join("");
+      .join("") +
+    (hasMore
+      ? `<button class="button collection" type="button" onclick="showMoreCollection()">Pokaż więcej (${visibleMovies.length - renderedMovies.length})</button>`
+      : "");
+}
+
+function showMoreCollection() {
+  collectionRenderLimit += COLLECTION_RENDER_STEP;
+  renderCollection();
 }
 
 function collectionMovieCard(movie) {
